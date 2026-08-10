@@ -68,14 +68,14 @@
 
 /* ---------- 动作库 v2 ---------- */
 .libv2{display:flex;gap:0;height:calc(100vh - 64px - var(--safe-b) - 56px);overflow:hidden;}
-.libv2-side{width:64px;flex:0 0 64px;overflow-y:auto;background:#f3f4f6;border-radius:14px 0 0 14px;padding:8px 0;}
+.libv2-side{width:64px;flex:0 0 64px;overflow-y:auto;background:#f3f4f6;border-radius:14px 0 0 14px;padding:calc(8px + var(--safe-t)) 0 8px;}
 .libv2-side::-webkit-scrollbar{display:none;}
 .libv2-cat{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 2px;
   font-size:11px;color:#6b7280;cursor:pointer;border-left:3px solid transparent;}
 .libv2-cat svg{width:26px;height:26px;}
 .libv2-cat.active{background:#fff;color:var(--accent);font-weight:700;border-left-color:var(--accent);border-radius:0 10px 10px 0;}
 .libv2-main{flex:1;overflow-y:auto;padding:0 2px 0 10px;}
-.libv2-topbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;}
+.libv2-topbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;padding-top:var(--safe-t);}
 .libv2-search{flex:1;display:flex;align-items:center;gap:6px;background:#f3f4f6;border-radius:12px;padding:10px 12px;}
 .libv2-search input{flex:1;border:0;background:transparent;font-size:14px;outline:none;}
 .libv2-add{width:40px;height:40px;flex:0 0 40px;border:0;border-radius:12px;background:var(--accent);color:#fff;
