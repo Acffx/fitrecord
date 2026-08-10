@@ -1,0 +1,886 @@
+/* ============================================================
+   FitRecord v4 增强包（对齐撸铁记）
+   后加载，覆盖 app.js 中同名函数
+   ============================================================ */
+'use strict';
+
+/* ---------- 动作配图（AI 生成，本地文件，离线可用） ---------- */
+const EX_IMG = {
+  press:'img/ex_press.jpg', fly:'img/ex_fly.jpg', row:'img/ex_row.jpg',
+  pulldown:'img/ex_pulldown.jpg', squat:'img/ex_squat.jpg', legpress:'img/ex_legpress.jpg',
+  legcurl:'img/ex_legcurl.jpg', ohp:'img/ex_ohp.jpg', latraise:'img/ex_latraise.jpg',
+  curl:'img/ex_curl.jpg', triext:'img/ex_triext.jpg', hipthrust:'img/ex_hipthrust.jpg',
+  crunch:'img/ex_crunch.jpg', cardio:'img/ex_cardio.jpg', hipab:'img/ex_hipab.jpg',
+  facepull:'img/ex_facepull.jpg', hyper:'img/ex_hyper.jpg', calf:'img/ex_calf.jpg',
+  pullup:'img/ex_pullup.jpg', hangleg:'img/ex_hangleg.jpg', kb:'img/ex_kb.jpg',
+  band:'img/ex_band.jpg'
+};
+const PART_IMG = {
+  '胸':'img/ex_press.jpg','背':'img/ex_pullup.jpg','腿':'img/ex_squat.jpg','臀':'img/ex_hipthrust.jpg',
+  '肩':'img/ex_ohp.jpg','手臂':'img/ex_curl.jpg','核心':'img/ex_crunch.jpg','有氧':'img/ex_cardio.jpg',
+  '全身':'img/hero_gym.jpg','拉伸':'img/ex_band.jpg'
+};
+function exImgHTML(ex, fallbackColor){
+  if(ex && ex.img) return '<img src="'+ex.img+'" alt="" loading="lazy">';
+  const key = ex && ex.svg;
+  if(key && EX_IMG[key]) return '<img src="'+EX_IMG[key]+'" alt="" loading="lazy">';
+  return EX_SVG[(ex&&ex.svg)||'band'] || '';
+}
+
+/* ---------- 计划封面：换真图 ---------- */
+function planArt(plan){
+  const first = plan.items && plan.items.length ? resolveEx(plan.items[0]) : null;
+  const src = (first && first.img) || (first && EX_IMG[first.svg]) || PART_IMG[first ? first.part : '全身'] || PART_IMG['全身'];
+  return '<img class="art-img" src="'+src+'" alt="" loading="lazy">';
+}
+
+/* ---------- 训练页头图（包装原函数，避免同名声明提升问题） ---------- */
+const _openWorkoutBase = openWorkout;
+openWorkout = function(){
+  _openWorkoutBase();
+  const hero = $('#workout-hero');
+  hero.style.background = 'linear-gradient(180deg,rgba(10,14,24,.25),rgba(10,14,24,.55)),url("img/hero_gym.jpg") center 28%/cover no-repeat,#141a26';
+};
+
+/* ---------- 顶栏：动作库页也隐藏（用页内搜索条） ---------- */
+function setTab(tab){
+  currentTab = tab;
+  $$('#tabbar .tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  $('#topbar').classList.toggle('hidden', tab === 'train' || tab === 'library');
+  if(tab !== 'train' && tab !== 'library'){
+    const titles={stats:'统计',me:'我的'};
+    $('#topbar-title').textContent = titles[tab] || 'FitRecord';
+  }
+  render();
+}
+
+/* ============================================================
+   首页：唯一「新建计划」入口
+   ============================================================ */
+function renderHome(){
+  const folders = state.folders.map(folderCardHTML).join('');
+  const solo = state.plans.filter(p=>!p.folderId || !state.folders.find(f=>f.id===p.folderId)).map(planCardHTML).join('');
+  const newPlanCard = `
+    <div class="new-plan-card" data-act="newPlan">
+      <span class="np-ic">+</span>新建计划
+    </div>`;
+  const libCards = PRESETS.map(pr=>`
+    <div class="lib-card" data-act="startPreset" data-id="${pr.id}">
+      <div class="lib-bg"><img class="art-img" src="${PART_IMG[pr.part]||PART_IMG['全身']}" alt="" loading="lazy"></div>
+      <div class="lib-overlay"></div>
+      <div class="lib-body">
+        <div class="lib-title">${escapeHtml(pr.name)}</div>
+        <div class="lib-meta">
+          <span class="level">${pr.level}</span>
+          <span class="meta-pill">${pr.count}个动作</span>
+          <span class="meta-pill">${pr.duration}</span>
+        </div>
+      </div>
+    </div>`).join('');
+  return `
+    <div class="home-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="brand">FitRecord</div>
+        <button class="notify-badge" data-act="openNotify" style="border:0;cursor:pointer;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;"></span> 新通知</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-custom" data-act="newFolder" style="display:inline-flex;align-items:center;gap:4px;">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          分组
+        </button>
+      </div>
+    </div>
+    <div class="date-str">${new Date().getFullYear()}年${new Date().getMonth()+1}月${new Date().getDate()}日</div>
+    <div class="section-title">
+      <h2>我的训练计划 <span style="font-size:18px;">🔥</span></h2>
+    </div>
+    ${folders}${solo || ''}${(!folders && !solo) ? '' : ''}
+    ${newPlanCard}
+    <div class="section-title"><h2>系统内置训练库 <span style="font-size:18px;">🚩</span></h2></div>
+    <div class="lib-scroll">${libCards}</div>
+  `;
+}
+
+/* ============================================================
+   动作库 v2（侧栏解剖部位 + 器械筛选 + 列表 + 新建动作）
+   ============================================================ */
+const LIB_CATS = [
+  {key:'全身', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.6" r="2.1"/><path d="M12 7.4v5.2M12 9.4L7.2 12M12 9.4l4.8 2.6M12 12.6L8.6 20M12 12.6L15.4 20"/></svg>'},
+  {key:'胸部', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8c2-1.4 4.5-2 8-2s6 .6 8 2c-.6 4-2.4 6.4-4.6 7.4-.8-2-1.7-3-3.4-3s-2.6 1-3.4 3C6.4 14.4 4.6 12 4 8z"/><path d="M12 6v12"/></svg>'},
+  {key:'背部', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5C7.5 6 9.5 6.6 12 6.6s4.5-.6 7-2.1c-1 3.2-2 5.4-3.4 7L12 19l-3.6-7.5C7 9.9 6 7.7 5 4.5z"/><path d="M12 6.6V19"/></svg>'},
+  {key:'腹部', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="7" y="4" width="10" height="16" rx="3"/><path d="M12 4v16M7 9.3h10M7 14.6h10"/></svg>'},
+  {key:'腿部', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5c.6 4 .4 7-.6 9.6-.9 2.4-1 4.4-.2 6.4M15 3.5c-.6 4-.4 7 .6 9.6.9 2.4 1 4.4.2 6.4"/></svg>'},
+  {key:'臀部', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 6c-4 0-7 2.4-7 6s3 6 5 6c.8-1.4 1.2-2.8 2-4 .8 1.2 1.2 2.6 2 4 2 0 5-2.4 5-6s-3-6-7-6z"/></svg>'},
+  {key:'肩部', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 14c0-5 3.6-8 8-8s8 3 8 8"/><path d="M4 14c2.5 1.6 5 1.6 8 0 3 1.6 5.5 1.6 8 0"/><path d="M12 6v12"/></svg>'},
+  {key:'手臂', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V11c0-3 2-5 4.5-5S15 8 15 10.5 13.5 15 11 15"/><path d="M15 10.5L19 8l1.5 2.5L16 14"/></svg>'},
+  {key:'有氧', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4l2-4.5 3 8 2.5-5.5H21"/></svg>'},
+  {key:'拉伸', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.5" r="1.8"/><path d="M8.5 8c2.5.5 4.5 2 5.5 4.5M8.5 8C7 11 6 14 6 20M8.5 8l-4 3M14 12.5l6-1.5"/></svg>'}
+];
+const LIB_EQUIPS = ['全部','杠铃','哑铃','器械','徒手','其他'];
+let libCat = '全身';
+let libEquip = '全部';
+
+function equipGroup(eq){
+  eq = eq || '';
+  if(/杠铃|奥杆|曲杆|T杠/.test(eq)) return '杠铃';
+  if(/哑铃/.test(eq)) return '哑铃';
+  if(/瑜伽垫|双杠|引体向上架|徒手|自重/.test(eq)) return '徒手';
+  if(/弹力带|泡沫轴|战绳|壶铃/.test(eq)) return '其他';
+  return '器械';
+}
+function libMatchCat(ex, cat){
+  switch(cat){
+    case '全身': return true;
+    case '胸部': return ex.part==='胸';
+    case '背部': return ex.part==='背';
+    case '腹部': return ex.part==='核心';
+    case '腿部': return ex.part==='腿' && !/臀/.test(ex.target+ex.name);
+    case '臀部': return /臀/.test(ex.target+ex.name);
+    case '肩部': return ex.part==='肩';
+    case '手臂': return ex.part==='手臂';
+    case '有氧': return ex.part==='有氧';
+    case '拉伸': return ex.part==='拉伸';
+    default: return true;
+  }
+}
+function renderLibrary(){
+  const list = allExercises().filter(ex=>{
+    if(!libMatchCat(ex, libCat)) return false;
+    if(libEquip!=='全部' && equipGroup(ex.equip)!==libEquip) return false;
+    const q = libQuery.toLowerCase();
+    if(q && !(ex.name.toLowerCase().includes(q) || (ex.equip||'').toLowerCase().includes(q) || (ex.target||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const side = LIB_CATS.map(c=>`
+    <div class="libv2-cat ${libCat===c.key?'active':''}" data-act="libCat" data-cat="${c.key}">
+      ${c.icon}<span>${c.key}</span>
+    </div>`).join('');
+  const chips = LIB_EQUIPS.map(t=>`<button class="libv2-chip ${libEquip===t?'active':''}" data-act="libEquip" data-eq="${t}">${t}</button>`).join('');
+  const rows = list.map(ex=>{
+    const typeTxt = ex.part==='有氧' ? '有氧训练' : '力量训练';
+    return `<div class="libv2-row" data-act="libDetail" data-id="${ex.id}">
+      <div class="libv2-thumb">${exImgHTML(ex)}</div>
+      <div class="libv2-info">
+        <div class="libv2-name">${escapeHtml(ex.name)}</div>
+        <div class="libv2-meta"><b>${escapeHtml(ex.level||'初级')}</b><b>${escapeHtml(ex.equip||'')}</b>${typeTxt}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+    <div style="padding-top:8px;"></div>
+    <div class="libv2">
+      <aside class="libv2-side">${side}</aside>
+      <div class="libv2-main">
+        <div class="libv2-topbar">
+          <div class="libv2-search">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="lib-search" placeholder="搜索动作" value="${escapeHtml(libQuery)}"/>
+          </div>
+          <button class="libv2-add" data-act="openCreateEx" title="创建动作">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="libv2-chips">${chips}</div>
+        <div>${rows || '<div class="empty" style="padding:30px 0;">没有匹配动作，点右上角 + 创建一个</div>'}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   创建动作页
+   ============================================================ */
+let createForm = null;
+const CREATE_PARTS = [
+  {label:'胸部', part:'胸', target:'胸大肌'},
+  {label:'背部', part:'背', target:'背阔肌'},
+  {label:'肩部', part:'肩', target:'三角肌'},
+  {label:'手臂', part:'手臂', target:'肱二头肌'},
+  {label:'腹部', part:'核心', target:'腹直肌'},
+  {label:'臀部', part:'腿', target:'臀大肌'},
+  {label:'腿部', part:'腿', target:'股四头肌'},
+  {label:'全身/有氧', part:'有氧', target:'心肺耐力'},
+  {label:'拉伸放松', part:'拉伸', target:'筋膜放松'}
+];
+const CREATE_EQUIPS = ['杠铃','哑铃','固定器械','龙门架','绳索','史密斯机','徒手','弹力带','壶铃','其他'];
+
+function openCreateEx(){
+  createForm = {img:'', name:'', partLabel:'', part:'', target:'', equip:'', type:'strength'};
+  $('#create-view').classList.remove('hidden');
+  $('#tabbar').classList.add('hidden');
+  renderCreateEx();
+}
+function closeCreateEx(){
+  $('#create-view').classList.add('hidden');
+  if(!session) $('#tabbar').classList.remove('hidden');
+}
+function renderCreateEx(){
+  const f = createForm;
+  $('#create-view').innerHTML = `
+    <div class="create-head">
+      <button class="back2" data-act="closeCreateEx">‹</button>
+      <span class="ttl">创建动作</span>
+      <button class="done-pill" data-act="saveCreateEx">完成</button>
+    </div>
+    <div class="create-body">
+      <div class="create-tip">
+        <span class="tip-ic">💡</span>
+        <span><b>创建小贴士</b><br>正确录入动作信息，有助于我们更精准地为您提供历史数据分析</span>
+      </div>
+      <div class="create-upload" data-act="pickCreateImg">
+        ${f.img
+          ? `<img src="${f.img}" alt=""><div class="up-s" style="margin-top:10px;">点击重新上传</div>`
+          : `<div class="cam"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div>
+             <div class="up-t">点击上传动作图片</div>
+             <div class="up-s">支持 JPG、PNG、GIF 格式</div>`}
+      </div>
+      <div class="create-field">
+        <div class="cf-l">动作名称</div>
+        <input id="ce-name" placeholder="请输入动作名称" value="${escapeHtml(f.name)}" maxlength="20"/>
+      </div>
+      <div class="create-sel" data-act="pickCreatePart">
+        <span class="cs-l">训练部位</span>
+        <span class="cs-v ${f.partLabel?'has':''}">${f.partLabel||'请选择训练的身体部位'} ›</span>
+      </div>
+      <div class="create-sel" data-act="pickCreateEquip">
+        <span class="cs-l">选择器械</span>
+        <span class="cs-v ${f.equip?'has':''}">${f.equip||'请选择训练器械'} ›</span>
+      </div>
+      <div class="create-field">
+        <div class="cf-l">选择动作类型</div>
+        <div class="create-types">
+          <div class="create-type ${f.type==='strength'?'active':''}" data-act="createType" data-t="strength">
+            <div class="ct-ic">🏋️</div>
+            <div class="ct-n">力量训练</div>
+            <div class="ct-s">记录次数+重量</div>
+          </div>
+          <div class="create-type ${f.type==='cardio'?'active':''}" data-act="createType" data-t="cardio">
+            <div class="ct-ic">🏃</div>
+            <div class="ct-n">有氧训练</div>
+            <div class="ct-s">记录时间+距离</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function compressImage(file, cb){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const max = 480;
+      let w = img.width, h = img.height;
+      if(w > max || h > max){ const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(cv.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = ()=>cb(reader.result);
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function saveCreateEx(){
+  createForm.name = ($('#ce-name') && $('#ce-name').value.trim()) || createForm.name;
+  const f = createForm;
+  if(!f.name){ toast('请输入动作名称'); return; }
+  if(!f.part){ toast('请选择训练部位'); return; }
+  if(!f.equip){ toast('请选择训练器械'); return; }
+  const ex = {
+    id:'c_'+uid(), name:f.name,
+    part: f.type==='cardio' ? '有氧' : f.part,
+    target: f.type==='cardio' ? '心肺耐力' : f.target,
+    equip:f.equip, level:'自定义',
+    tip:'我的自定义动作', svg:'',
+    img:f.img || '', custom:true
+  };
+  state.customEx.push(ex);
+  try{ save(); }catch(e){ state.customEx.pop(); toast('存储空间不足，图片过大'); return; }
+  closeCreateEx();
+  render();
+  toast('已创建动作「'+ex.name+'」');
+}
+
+/* ============================================================
+   训练进行页：组列表（左滑操作 + 滚轮选值）
+   ============================================================ */
+function renderWorkoutList(){
+  const list = $('#workout-list');
+  if(!session) return;
+  list.innerHTML = session.items.map((it,i)=>{
+    const last = lastSetsForEx(it.exId);
+    const sugg = suggestForEx(it.exId);
+    const unit = it.lb ? 'LB' : 'KG';
+    const conv = w => it.lb ? (w/0.4536).toFixed(1) : w;
+    const refHtml = last ? `<div class="prev-ref">上次（${fmtMD(last.date)}）：${last.sets.map(s=>`${conv(s.weight)}×${s.reps}`).join(' / ')}<button class="fill-last" data-act="fillLast" data-ex="${i}">填入上次</button></div>` : '';
+    const suggHtml = sugg ? `<div class="sugg-row">⚡ 自动进阶：${conv(sugg.weight)}${unit} × ${sugg.reps}（${sugg.reason}）<button data-act="applySugg" data-ex="${i}">应用</button></div>` : '';
+    const restTag = it.restSec>0 ? `<span class="tag grey" style="margin-left:4px;">休息${it.restSec}s</span>` : '';
+    const supTag = it.supersetWith!==null && it.supersetWith!==undefined ? `<span class="tag warn" style="margin-left:4px;">超级组</span>` : '';
+    const notesTag = it.notes ? `<div style="font-size:11px;color:var(--accent);padding:2px 0 4px 4px;">📝 ${escapeHtml(it.notes)}</div>` : '';
+    const rows = it.sets.map((s,j)=>{
+      const refSet = last && last.sets[j];
+      const wTxt = (s.weight!==''&&s.weight!==null&&s.weight!==undefined&&+s.weight>0) ? conv(s.weight) : (refSet?conv(refSet.weight):'0');
+      const rTxt = (+s.reps>0) ? s.reps : (refSet?refSet.reps:'0');
+      const wEmpty = !(+s.weight>0), rEmpty = !(+s.reps>0);
+      return `
+      <div class="set-swipe">
+        <div class="set-actions">
+          <button class="sa-copy" data-act="setCopyDown" data-ex="${i}" data-set="${j}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>向下复制
+          </button>
+          <button class="sa-warm" data-act="setWarmup" data-ex="${i}" data-set="${j}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 8c-2 2-4 3.5-4 6a4 4 0 0 0 8 0c0-2.5-2-4-4-6z"/></svg>${s.warmup?'取消热身':'热身组'}
+          </button>
+          <button class="sa-del" data-act="setDelConfirm" data-ex="${i}" data-set="${j}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>删除
+          </button>
+        </div>
+        <div class="set-row ${s.warmup?'warmup-row':''}">
+          <span class="set-no">${j+1}${s.warmup?'<span class="wu">热身</span>':''}</span>
+          <button class="set-val ${wEmpty?'empty':''}" data-act="wheelW" data-ex="${i}" data-set="${j}">${wTxt}</button>
+          <button class="set-val ${rEmpty?'empty':''}" data-act="wheelR" data-ex="${i}" data-set="${j}">${rTxt}</button>
+          <button class="rpe-btn ${s.rpe?'hot':''}" data-act="rpeOpen" data-ex="${i}" data-set="${j}">${s.rpe||'—'}</button>
+          <button class="set-done-btn ${s.done?'completed':''}" data-act="doneSet" data-ex="${i}" data-set="${j}">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+          <button class="set-act-btn" data-act="setMenu" data-ex="${i}" data-set="${j}" title="组操作">⋮</button>
+        </div>
+      </div>`;
+    }).join('');
+    const exObj = resolveEx(it.exId) || it;
+    return `
+      <div class="ex-card ${(it.supersetWith!==null&&it.supersetWith!==undefined)?'superset-card':''}">
+        <div class="ex-head">
+          <div class="ex-thumb" style="background:#f3f6fb;overflow:hidden;padding:0;">${exImgHTML(exObj)}</div>
+          <div class="ex-info">
+            <div class="ex-name">${escapeHtml(it.name)}${supTag}</div>
+            <div class="ex-meta">${it.part} · ${it.equip}${restTag}</div>
+          </div>
+          <button class="set-done-btn" data-act="exMenu" data-ex="${i}" title="动作设置" style="color:var(--accent);border-color:var(--accent-light);background:var(--accent-light);">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82.33l.06.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+        </div>
+        ${refHtml}${suggHtml}${notesTag}
+        <div class="sets-head"><span>组</span><span>${unit}</span><span>次</span><span>RPE</span><span>完成</span><span></span></div>
+        ${rows}
+        <button class="add-set-btn" data-act="addSet" data-ex="${i}">+ 添加一组</button>
+      </div>`;
+  }).join('');
+}
+
+/* ---------- 滚轮选择器 ---------- */
+let wheelCtx = null;
+function openWheel(title, unit, values, current, cb){
+  wheelCtx = {values, cb, idx:0};
+  let best = 0, bd = Infinity;
+  values.forEach((v,k)=>{ const d = Math.abs(v-(+current||0)); if(d<bd){bd=d;best=k;} });
+  wheelCtx.idx = best;
+  openSheet(`
+    <h3 style="text-align:center;">${escapeHtml(title)}</h3>
+    <div class="wheel-wrap">
+      <div class="wheel-band"></div>
+      <div class="wheel-unit">${escapeHtml(unit)}</div>
+      <div class="wheel" id="wheel">
+        ${values.map((v,k)=>`<div class="wheel-opt ${k===best?'cur':''}" data-wi="${k}">${Number.isInteger(v)?v:v.toFixed(1)}</div>`).join('')}
+      </div>
+    </div>
+    <button class="btn block primary" data-act="wheelOk">确定</button>
+  `);
+  const wheel = $('#wheel');
+  requestAnimationFrame(()=>{ wheel.scrollTop = best*44; });
+  let st = null;
+  wheel.addEventListener('scroll', ()=>{
+    clearTimeout(st);
+    st = setTimeout(()=>{
+      const idx = Math.max(0, Math.min(values.length-1, Math.round(wheel.scrollTop/44)));
+      wheelCtx.idx = idx;
+      $$('.wheel-opt', wheel).forEach((el,k)=>el.classList.toggle('cur', k===idx));
+    }, 70);
+  });
+  wheel.addEventListener('click', e=>{
+    const opt = e.target.closest('.wheel-opt');
+    if(opt){ wheel.scrollTo({top:(+opt.dataset.wi)*44, behavior:'smooth'}); }
+  });
+}
+function openWheelFor(i, j, field){
+  const it = session.items[i];
+  const s = it.sets[j];
+  if(field==='weight'){
+    const unit = it.lb ? 'LB' : 'KG';
+    const conv = w => it.lb ? (w/0.4536) : w;
+    const step = it.lb ? 5 : 2.5;
+    const max = it.lb ? 445 : 200;
+    const values = [];
+    for(let v=0; v<=max; v+=step) values.push(+v.toFixed(1));
+    const cur = (+s.weight>0) ? conv(+s.weight) : 0;
+    openWheel('第'+(j+1)+'组 · '+it.name, unit, values, cur, v=>{
+      s.weight = it.lb ? +(v*0.4536).toFixed(1) : v;
+      renderWorkoutList();
+    });
+  } else {
+    const values = [];
+    for(let v=1; v<=100; v++) values.push(v);
+    openWheel('第'+(j+1)+'组 · '+it.name, '次', values, +s.reps||12, v=>{
+      s.reps = v;
+      renderWorkoutList();
+    });
+  }
+}
+
+/* ---------- 左滑手势 ---------- */
+let swipeSt = null;
+let swipeSwallow = false;
+function closeAllSwipes(except){
+  $$('.set-row').forEach(r=>{
+    if(r!==except){ r.style.transform=''; delete r.dataset.open; }
+  });
+}
+document.addEventListener('touchstart', e=>{
+  const row = e.target.closest('.set-row');
+  if(!row){
+    if(!e.target.closest('.set-swipe')) closeAllSwipes();
+    return;
+  }
+  closeAllSwipes(row);
+  swipeSt = {row, x:e.touches[0].clientX, y:e.touches[0].clientY, active:false, moved:false};
+}, {passive:true});
+document.addEventListener('touchmove', e=>{
+  if(!swipeSt) return;
+  const dx = e.touches[0].clientX - swipeSt.x;
+  const dy = e.touches[0].clientY - swipeSt.y;
+  const row = swipeSt.row;
+  if(!swipeSt.active && Math.abs(dx)>10 && Math.abs(dx)>Math.abs(dy)*1.4){
+    swipeSt.active = true;
+    row.classList.add('no-anim');
+    closeAllSwipes(row);
+  }
+  if(swipeSt.active){
+    swipeSt.moved = true;
+    const base = row.dataset.open==='1' ? -216 : 0;
+    let nx = Math.max(-216, Math.min(0, base+dx));
+    row.style.transform = 'translateX('+nx+'px)';
+    if(e.cancelable) e.preventDefault();
+  }
+}, {passive:false});
+document.addEventListener('touchend', ()=>{
+  if(!swipeSt) return;
+  const row = swipeSt.row;
+  row.classList.remove('no-anim');
+  if(swipeSt.active){
+    const m = (row.style.transform.match(/-?[\d.]+/)||[0])[0];
+    const cur = parseFloat(m);
+    if(cur < -108){ row.style.transform='translateX(-216px)'; row.dataset.open='1'; }
+    else { row.style.transform=''; delete row.dataset.open; }
+    swipeSwallow = true;
+    setTimeout(()=>{ swipeSwallow=false; }, 120);
+  }
+  swipeSt = null;
+});
+document.addEventListener('click', e=>{
+  if(swipeSwallow && e.target.closest('.set-swipe')){
+    e.stopPropagation(); e.preventDefault(); swipeSwallow = false;
+  }
+}, true);
+
+/* ============================================================
+   动作菜单（撸铁记同款）
+   ============================================================ */
+function openExMenu(i){
+  const it = session.items[i];
+  const isSup = it.supersetWith!==null && it.supersetWith!==undefined;
+  openSheet(`
+    <h3 style="text-align:left;">动作菜单</h3>
+    <div class="ex-menu-list">
+      <div class="ex-menu-item hero-item" data-act="exReplace" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff;">🤖</div>
+        <div class="ex-menu-t"><div class="n">替换动作 <span class="tag" style="background:#8b5cf6;color:#fff;font-size:9px;">推荐</span></div><div class="s">换个同部位动作，保留已填组数</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="exDelete" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:#fee2e2;color:#ef4444;">🗑</div>
+        <div class="ex-menu-t"><div class="n">删除动作</div><div class="s">从当前计划中移除此动作</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="exSort" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:#eff6ff;color:#2563eb;">↕️</div>
+        <div class="ex-menu-t"><div class="n">动作排序</div><div class="s">调整动作在训练中的顺序</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="exTimer" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:#eff6ff;color:#2563eb;">⏱</div>
+        <div class="ex-menu-t"><div class="n">计时设置</div><div class="s">设置组间休息倒计时秒数（当前${it.restSec>0?it.restSec+'秒':'默认'+state.settings.restSec+'秒'}）</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="exNotes" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:#fffbeb;color:#f59e0b;">💡</div>
+        <div class="ex-menu-t"><div class="n">记录想法</div><div class="s">记录训练心得与动作备注</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="exLB" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:#f0f9ff;color:#0ea5e9;">⚖️</div>
+        <div class="ex-menu-t"><div class="n">${it.lb?'修改为KG':'修改为LB'}</div><div class="s">将本动作重量单位切换为${it.lb?'千克':'磅'}</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="exSuperset" data-ex="${i}">
+        <div class="ex-menu-ic" style="background:#fdf2f8;color:#ec4899;">🔗</div>
+        <div class="ex-menu-t"><div class="n">${isSup?'取消超级组':'超级组'}</div><div class="s">${isSup?'解除与相邻动作的组合':'将两个力量动作组合为超级组'}</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+    </div>
+  `);
+}
+function openExSortSheet(i){
+  const rows = session.items.map((x,k)=>`
+    <div class="sort-row">
+      <span class="sr-name">${k+1}. ${escapeHtml(x.name)}${k===i?' <span class="tag">当前</span>':''}</span>
+      <button class="sr-btn" data-act="exMove" data-ex="${k}" data-dir="-1" ${k===0?'disabled':''}>↑</button>
+      <button class="sr-btn" data-act="exMove" data-ex="${k}" data-dir="1" ${k===session.items.length-1?'disabled':''}>↓</button>
+    </div>`).join('');
+  $('#sheet').innerHTML = `
+    <h3>动作排序</h3>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px;">点箭头调整顺序，完成后返回</p>
+    ${rows}
+    <div style="margin-top:14px;"><button class="btn block primary" data-act="exSortDone" data-ex="${i}">完成</button></div>
+  `;
+}
+function openSetMenu(i, j){
+  const s = session.items[i].sets[j];
+  openSheet(`
+    <h3>第${j+1}组 · ${escapeHtml(session.items[i].name)}</h3>
+    <div class="ex-menu-list">
+      <div class="ex-menu-item" data-act="setCopyDown" data-ex="${i}" data-set="${j}">
+        <div class="ex-menu-ic" style="background:#fffbeb;color:#f59e0b;">📋</div>
+        <div class="ex-menu-t"><div class="n">向下复制</div><div class="s">在下方插入相同的一组</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="setWarmup" data-ex="${i}" data-set="${j}">
+        <div class="ex-menu-ic" style="background:#eff6ff;color:#3b82f6;">🔥</div>
+        <div class="ex-menu-t"><div class="n">${s.warmup?'取消热身':'热身组'}</div><div class="s">标记为热身组（不计入正式组）</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+      <div class="ex-menu-item" data-act="setDelConfirm" data-ex="${i}" data-set="${j}">
+        <div class="ex-menu-ic" style="background:#fee2e2;color:#ef4444;">🗑</div>
+        <div class="ex-menu-t"><div class="n" style="color:#ef4444;">删除</div><div class="s">删除当前这一组数据</div></div>
+        <span class="ex-menu-arrow">›</span>
+      </div>
+    </div>
+    <div style="margin-top:12px;"><button class="btn block" data-act="closeSheet">关闭</button></div>
+  `);
+}
+function openExTimerSheet(i){
+  const it = session.items[i];
+  const opts = [30,45,60,90,120,180];
+  openSheet(`
+    <h3>计时设置 · ${escapeHtml(it.name)}</h3>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px;">完成一组后自动按此时长倒计时</p>
+    <div class="rest-chips">
+      ${opts.map(v=>`<button class="rest-chip ${it.restSec===v?'active':''}" data-act="exTimerSet" data-ex="${i}" data-v="${v}">${v}s</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn block" data-act="exTimerSet" data-ex="${i}" data-v="0">跟随默认（${state.settings.restSec}s）</button>
+    </div>
+    <div class="field" style="margin-top:12px;"><label>自定义秒数</label>
+      <div style="display:flex;gap:10px;"><input id="ex-rest-custom" type="number" inputmode="numeric" placeholder="如 75" style="flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font-size:15px;"/>
+      <button class="btn primary" data-act="exTimerCustom" data-ex="${i}">确定</button></div>
+    </div>
+  `);
+}
+function openExNotesSheet(i){
+  const it = session.items[i];
+  openSheet(`
+    <h3>记录想法 · ${escapeHtml(it.name)}</h3>
+    <div class="field"><textarea id="ex-notes-inp" rows="4" placeholder="如：今天左肩有点紧，下放幅度减小">${escapeHtml(it.notes||'')}</textarea></div>
+    <div style="display:flex;gap:10px;"><button class="btn block" data-act="closeSheet">取消</button><button class="btn block primary" data-act="exNotesSave" data-ex="${i}">保存</button></div>
+  `);
+}
+function openExReplaceSheet(i){
+  const cur = session.items[i];
+  const list = allExercises().filter(ex=>ex.id!==cur.exId);
+  list.sort((a,b)=>((b.part===cur.part)-(a.part===cur.part)) || a.part.localeCompare(b.part,'zh'));
+  openSheet(`
+    <h3>替换动作</h3>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px;">替换后保留已填写的组数数据，同部位动作排在前面</p>
+    <div style="max-height:56vh;overflow-y:auto;">
+      ${list.map(ex=>`
+        <div class="ex-menu-item" style="padding:9px 10px;" data-act="exReplaceDo" data-ex="${i}" data-id="${ex.id}">
+          <div class="ex-menu-ic" style="width:40px;height:40px;flex:0 0 40px;border-radius:10px;background:#f3f6fb;overflow:hidden;padding:0;">${exImgHTML(ex)}</div>
+          <div class="ex-menu-t"><div class="n" style="font-size:14px;">${escapeHtml(ex.name)}</div><div class="s">${ex.part} · ${ex.equip}${ex.part===cur.part?' · 同部位':''}</div></div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:12px;"><button class="btn block" data-act="closeSheet">取消</button></div>
+  `);
+}
+
+/* ---------- 动作库详情（真图 + 自定义可删除） ---------- */
+function openLibDetailV2(ex){
+  const inSession = !!session;
+  const typeTxt = ex.part==='有氧' ? '有氧训练' : '力量训练';
+  openSheet(`
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="width:100%;height:180px;background:#f3f6fb;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;overflow:hidden;">${exImgHTML(ex)}</div>
+      <div style="font-size:18px;font-weight:700;">${escapeHtml(ex.name)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;">${ex.part} · ${ex.target||ex.part} · ${ex.equip} · ${ex.level||'初级'} · ${typeTxt}</div>
+    </div>
+    <div style="background:#f9fafb;border-radius:12px;padding:12px;font-size:14px;line-height:1.6;margin-bottom:16px;">
+      <b>动作要点：</b>${escapeHtml(ex.tip||'—')}
+    </div>
+    <div style="display:flex;gap:10px;">
+      ${ex.custom?`<button class="btn" style="background:#fee2e2;color:#ef4444;" data-act="delCustomEx" data-id="${ex.id}">删除</button>`:''}
+      <button class="btn block" data-act="closeSheet">关闭</button>
+      ${inSession?`<button class="btn block primary" data-act="addLibToSession" data-id="${ex.id}">加入当前训练</button>`:`<button class="btn block primary" data-act="addLibToPlan" data-id="${ex.id}">加入计划</button>`}
+    </div>
+  `);
+}
+
+/* ---------- 选择器 / 计划编辑器：包含自定义动作 + 真图 ---------- */
+function renderPicker(){
+  $('#ep-chips').innerHTML = PARTS.map(p=>`<span class="ep-chip ${pickerPart===p?'active':''}" data-part="${p}">${p}</span>`).join('');
+  const list = allExercises().filter(ex=>{
+    const matchPart = pickerPart==='全部' || ex.part===pickerPart;
+    const q = pickerQuery.toLowerCase();
+    const matchQ = !q || ex.name.toLowerCase().includes(q) || ex.part.includes(q) || (ex.equip||'').includes(q);
+    return matchPart && matchQ;
+  });
+  $('#ep-list').innerHTML = list.map(ex=>`
+    <div class="ep-item" data-act="pickEx" data-id="${ex.id}">
+      <div class="ep-thumb" style="overflow:hidden;padding:0;background:#f3f6fb;">${exImgHTML(ex)}</div>
+      <div class="ep-info">
+        <div class="ep-name">${escapeHtml(ex.name)}</div>
+        <div class="ep-meta">${ex.part} · ${ex.equip} · ${ex.level||'初级'}</div>
+      </div>
+      <button class="ep-add"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>`).join('');
+}
+function openPlanEditor(plan=null){
+  const isNew = !plan;
+  const p = plan || {id:uid(),name:'',items:[],folderId:null};
+  const selected = new Set(p.items);
+  const folderOpts = `<option value="">不分组</option>` + state.folders.map(f=>`<option value="${f.id}" ${p.folderId===f.id?'selected':''}>${escapeHtml(f.name)}</option>`).join('');
+  const html = `
+    <h3>${isNew?'新建训练计划':'编辑训练计划'}</h3>
+    <div class="field"><label>计划名称</label><input id="plan-name" value="${escapeHtml(p.name)}" placeholder="如：胸肌轰炸"/></div>
+    <div class="field"><label>所属分组</label><select id="plan-folder">${folderOpts}</select></div>
+    <div class="field"><label>选择动作（已选 <span id="plan-count">${selected.size}</span> 个）</label></div>
+    <div style="max-height:44vh;overflow-y:auto;padding-right:4px;">
+      ${allExercises().map(ex=>`
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;">
+          <input type="checkbox" class="plan-ex-chk" value="${ex.id}" ${selected.has(ex.id)?'checked':''}>
+          <span style="flex:1;font-size:14px;">${escapeHtml(ex.name)} <span style="color:var(--muted);font-size:12px;">· ${ex.part}${ex.custom?' · 自定义':''}</span></span>
+        </label>
+      `).join('')}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      ${isNew?'':'<button class="btn" style="background:#fee2e2;color:#ef4444;" data-act="delPlan" data-id="'+p.id+'">删除</button>'}
+      <button class="btn block" data-act="closeSheet">取消</button>
+      <button class="btn block primary" data-act="savePlan" data-id="${p.id}" data-new="${isNew?1:0}">保存</button>
+    </div>
+  `;
+  openSheet(html);
+}
+
+/* ---------- 会话条目：带上图片 ---------- */
+function addExerciseToSession(exId){
+  const ex = resolveEx(exId);
+  if(!ex || !session) return;
+  session.items.push({exId:ex.id,name:ex.name,part:ex.part,equip:ex.equip,icon:ex.icon||ex.part,svg:ex.svg,img:ex.img||'',
+    sets:[{weight:'',reps:'',rpe:'',done:false,warmup:false}],
+    restSec:0, notes:'', supersetWith:null, lb:false});
+  renderWorkoutList();
+  toast('已添加 ' + ex.name);
+}
+
+/* ============================================================
+   新增事件分发
+   ============================================================ */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act]');
+  if(!act) return;
+  const a = act.dataset.act;
+
+  // 动作库 v2
+  if(a==='libCat'){ libCat=act.dataset.cat; render(); return; }
+  if(a==='libEquip'){ libEquip=act.dataset.eq; render(); return; }
+  if(a==='libDetail'){
+    const ex=resolveEx(act.dataset.id); if(ex) openLibDetailV2(ex);
+    return;
+  }
+  if(a==='delCustomEx'){
+    const id = act.dataset.id;
+    state.customEx = (state.customEx||[]).filter(x=>x.id!==id);
+    save(); closeSheet(); render(); toast('自定义动作已删除');
+    return;
+  }
+
+  // 创建动作
+  if(a==='openCreateEx'){ openCreateEx(); return; }
+  if(a==='closeCreateEx'){ closeCreateEx(); return; }
+  if(a==='createType'){ createForm.type = act.dataset.t; renderCreateEx(); return; }
+  if(a==='pickCreateImg'){ $('#ce-file').click(); return; }
+  if(a==='pickCreatePart'){
+    const nm = $('#ce-name'); if(nm) createForm.name = nm.value.trim();
+    openSheet(`<h3>训练部位</h3><div class="sel-list">
+      ${CREATE_PARTS.map((p,k)=>`<div class="sel-item ${createForm.partLabel===p.label?'active':''}" data-act="createPartSet" data-k="${k}"><span>${p.label}</span>${createForm.partLabel===p.label?'✓':''}</div>`).join('')}
+    </div>`);
+    return;
+  }
+  if(a==='createPartSet'){
+    const p = CREATE_PARTS[+act.dataset.k];
+    createForm.partLabel = p.label; createForm.part = p.part; createForm.target = p.target;
+    closeSheet(); renderCreateEx(); return;
+  }
+  if(a==='pickCreateEquip'){
+    const nm = $('#ce-name'); if(nm) createForm.name = nm.value.trim();
+    openSheet(`<h3>选择器械</h3><div class="sel-list">
+      ${CREATE_EQUIPS.map(t=>`<div class="sel-item ${createForm.equip===t?'active':''}" data-act="createEquipSet" data-v="${t}"><span>${t}</span>${createForm.equip===t?'✓':''}</div>`).join('')}
+    </div>`);
+    return;
+  }
+  if(a==='createEquipSet'){ createForm.equip = act.dataset.v; closeSheet(); renderCreateEx(); return; }
+  if(a==='saveCreateEx'){ saveCreateEx(); return; }
+
+  // 滚轮
+  if(a==='wheelW'){ openWheelFor(+act.dataset.ex, +act.dataset.set, 'weight'); return; }
+  if(a==='wheelR'){ openWheelFor(+act.dataset.ex, +act.dataset.set, 'reps'); return; }
+  if(a==='wheelOk'){
+    if(wheelCtx && wheelCtx.cb) wheelCtx.cb(wheelCtx.values[wheelCtx.idx]);
+    wheelCtx = null; closeSheet(); return;
+  }
+
+  // 动作菜单
+  if(a==='exMenu'){ openExMenu(+act.dataset.ex); return; }
+  if(a==='setMenu'){ openSetMenu(+act.dataset.ex, +act.dataset.set); return; }
+  if(a==='exTimer'){ openExTimerSheet(+act.dataset.ex); return; }
+  if(a==='exTimerSet'){
+    const i=+act.dataset.ex;
+    session.items[i].restSec = +act.dataset.v;
+    closeSheet(); renderWorkoutList();
+    toast(+act.dataset.v>0 ? '该动作组间休息 '+act.dataset.v+' 秒' : '已恢复默认休息时长');
+    return;
+  }
+  if(a==='exTimerCustom'){
+    const i=+act.dataset.ex;
+    const v = Math.max(10, +$('#ex-rest-custom').value||0);
+    if(!v){ toast('请输入秒数'); return; }
+    session.items[i].restSec = v;
+    closeSheet(); renderWorkoutList(); toast('该动作组间休息 '+v+' 秒');
+    return;
+  }
+  if(a==='exNotes'){ openExNotesSheet(+act.dataset.ex); return; }
+  if(a==='exNotesSave'){
+    const i=+act.dataset.ex;
+    session.items[i].notes = $('#ex-notes-inp').value.trim();
+    closeSheet(); renderWorkoutList(); toast('备注已保存');
+    return;
+  }
+  if(a==='exLB'){
+    const it = session.items[+act.dataset.ex];
+    it.lb = !it.lb;
+    closeSheet(); renderWorkoutList();
+    toast('已切换为 ' + (it.lb?'LB（磅）':'KG（千克）'));
+    return;
+  }
+  if(a==='exSuperset'){
+    const i = +act.dataset.ex;
+    const it = session.items[i];
+    const isSup = it.supersetWith!==null && it.supersetWith!==undefined;
+    if(isSup){
+      const j = it.supersetWith;
+      it.supersetWith = null;
+      if(session.items[j]) session.items[j].supersetWith = null;
+      closeSheet(); renderWorkoutList(); toast('已取消超级组');
+    } else {
+      if(i+1 >= session.items.length){ toast('下面没有动作了，无法组合'); return; }
+      it.supersetWith = i+1;
+      session.items[i+1].supersetWith = i;
+      closeSheet(); renderWorkoutList();
+      toast('已与「'+session.items[i+1].name+'」组成超级组');
+    }
+    return;
+  }
+  if(a==='exReplace'){ openExReplaceSheet(+act.dataset.ex); return; }
+  if(a==='exReplaceDo'){
+    const i = +act.dataset.ex;
+    const ex = resolveEx(act.dataset.id);
+    if(ex){
+      const it = session.items[i];
+      it.exId = ex.id; it.name = ex.name; it.part = ex.part; it.equip = ex.equip;
+      it.svg = ex.svg; it.img = ex.img||''; it.icon = ex.icon||ex.part;
+      closeSheet(); renderWorkoutList(); toast('已替换为「'+ex.name+'」');
+    }
+    return;
+  }
+  if(a==='exDelete'){
+    const i = +act.dataset.ex;
+    const name = session.items[i].name;
+    closeSheet();
+    delEx(i);
+    // 修正超级组索引
+    session.items.forEach(x=>{
+      if(x.supersetWith===i) x.supersetWith = null;
+      else if(x.supersetWith>i) x.supersetWith--;
+    });
+    renderWorkoutList();
+    toast('已删除「'+name+'」');
+    return;
+  }
+  if(a==='exSort'){ openExSortSheet(+act.dataset.ex); return; }
+  if(a==='exMove'){
+    const k = +act.dataset.ex, dir = +act.dataset.dir;
+    const t = k + dir;
+    if(t<0 || t>=session.items.length) return;
+    const arr = session.items;
+    const pmap = new Map(arr.map(x=>[x, (x.supersetWith!==null&&x.supersetWith!==undefined)?arr[x.supersetWith]:null]));
+    [arr[k], arr[t]] = [arr[t], arr[k]];
+    arr.forEach(x=>{ const p = pmap.get(x); x.supersetWith = p ? arr.indexOf(p) : null; });
+    renderWorkoutList();
+    openExSortSheet(t);
+    return;
+  }
+  if(a==='exSortDone'){ closeSheet(); renderWorkoutList(); return; }
+
+  // 组操作
+  if(a==='setCopyDown'){
+    const i=+act.dataset.ex, j=+act.dataset.set;
+    const src = session.items[i].sets[j];
+    session.items[i].sets.splice(j+1, 0, {weight:src.weight, reps:src.reps, rpe:src.rpe||'', done:false, warmup:src.warmup||false});
+    closeSheet(); renderWorkoutList(); toast('已向下复制一组');
+    return;
+  }
+  if(a==='setWarmup'){
+    const i=+act.dataset.ex, j=+act.dataset.set;
+    const s = session.items[i].sets[j];
+    s.warmup = !s.warmup;
+    closeSheet(); renderWorkoutList();
+    toast(s.warmup?'已标记为热身组':'已取消热身标记');
+    return;
+  }
+  if(a==='setDelConfirm'){
+    const i=+act.dataset.ex, j=+act.dataset.set;
+    closeSheet();
+    delSet(i,j);
+    toast('已删除该组');
+    return;
+  }
+});
+
+/* 创建动作：文件选择 */
+document.addEventListener('change', e=>{
+  if(e.target && e.target.id==='ce-file'){
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    compressImage(file, dataUrl=>{
+      if(createForm){ createForm.img = dataUrl; renderCreateEx(); }
+    });
+    e.target.value = '';
+  }
+});
+document.addEventListener('input', e=>{
+  if(e.target && e.target.id==='ce-name' && createForm){
+    createForm.name = e.target.value.trim();
+  }
+});
+
+/* 首次加载：用新版函数重渲染当前页 */
+try{ setTab(currentTab || 'train'); }catch(e){}

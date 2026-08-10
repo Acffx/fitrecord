@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FitRecord" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" href="icon-192.png" />
+  <title>FitRecord · 训练记录</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="enhance.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar" class="hidden">
+      <div class="topbar-inner">
+        <span id="topbar-title"></span>
+      </div>
+    </header>
+    <main id="view"></main>
+
+    <nav id="tabbar">
+      <button class="tab active" data-tab="train">
+        <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg></span>
+        <span class="lb">训练</span>
+      </button>
+      <button class="tab" data-tab="library">
+        <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z"/><path d="M6 4v14"/><path d="M12 4v16"/></svg></span>
+        <span class="lb">动作库</span>
+      </button>
+      <button class="tab" data-tab="stats">
+        <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="5" width="3" height="13" rx="1"/></svg></span>
+        <span class="lb">统计</span>
+      </button>
+      <button class="tab" data-tab="me">
+        <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg></span>
+        <span class="lb">我的</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- 通用弹窗 -->
+  <div id="overlay" class="overlay hidden">
+    <div id="sheet" class="sheet"></div>
+  </div>
+
+  <!-- 训练进行页（全屏） -->
+  <div id="workout-view" class="workout-view hidden">
+    <div class="workout-hero" id="workout-hero">
+      <div class="workout-hero-top">
+        <button class="icon-btn" data-act="backWorkout"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <span id="wo-finish" class="finish-pill" data-act="finishWorkout">完成</span>
+      </div>
+      <div class="workout-hero-body">
+        <h1 id="wo-title">胸部训练计划</h1>
+        <div class="workout-timer-row">
+          <span id="wo-time">00:00:00</span>
+          <button class="play-btn" id="wo-play" data-act="toggleTimer"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+        </div>
+      </div>
+    </div>
+    <div class="workout-list" id="workout-list"></div>
+    <div class="workout-footer">
+      <button class="btn block primary" data-act="addExercise">+ 添加新动作</button>
+    </div>
+  </div>
+
+  <!-- 组间休息倒计时 -->
+  <div id="rest-layer" class="rest-layer hidden">
+    <div class="rest-inner">
+      <div class="rest-label">组间休息</div>
+      <div id="rest-time" class="rest-time">01:00</div>
+      <div class="rest-ex" id="rest-ex">下一组即将开始</div>
+      <div class="rest-actions">
+        <button class="rest-btn" id="rest-sub10" data-act="restSub10">-10s</button>
+        <button class="rest-btn primary" id="rest-skip" data-act="restSkip">完成休息</button>
+        <button class="rest-btn" id="rest-add15" data-act="restAdd15">+15s</button>
+      </div>
+      <input id="rest-range" type="range" min="10" max="300" step="5" value="60" />
+      <div class="rest-range-label">拖动调整休息时长</div>
+    </div>
+  </div>
+
+  <!-- 训练详情页（全屏） -->
+  <div id="detail-view" class="detail-view hidden"></div>
+
+  <!-- 分组详情页（全屏） -->
+  <div id="folder-view" class="detail-view hidden"></div>
+
+  <!-- 身体数据页（全屏） -->
+  <div id="bodydata-view" class="detail-view hidden"></div>
+
+  <!-- 添加动作弹窗 -->
+  <div id="ex-picker" class="ex-picker hidden">
+    <div class="ep-header">
+      <span>添加动作</span>
+      <button class="icon-btn" data-act="closePicker"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="ep-search">
+      <input type="text" id="ep-input" placeholder="搜索动作名称" />
+    </div>
+    <div class="ep-chips" id="ep-chips"></div>
+    <div class="ep-list" id="ep-list"></div>
+  </div>
+
+  <!-- 创建动作页（全屏） -->
+  <div id="create-view" class="hidden"></div>
+  <input type="file" id="ce-file" accept="image/*" style="display:none;" />
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="exercises.js"></script>
+  <script src="app.js"></script>
+  <script src="enhance.js"></script>
+</body>
+</html>
