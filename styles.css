@@ -72,7 +72,7 @@ body{
 .hidden{display:none!important;}
 
 /* ===== 训练首页 ===== */
-.home-header{display:flex;align-items:center;justify-content:space-between;padding-top:8px;margin-bottom:6px;}
+.home-header{display:flex;align-items:center;justify-content:space-between;padding-top:calc(8px + var(--safe-t));margin-bottom:6px;}
 .brand{font-size:26px;font-weight:800;color:var(--accent);letter-spacing:-.5px;}
 .notify-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);
   background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 10px;}
@@ -126,7 +126,7 @@ body{
   background-size:cover;background-position:center;}
 .workout-hero::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.38);}
 .workout-hero > *{position:relative;z-index:2;}
-.workout-hero-top{display:flex;align-items:center;justify-content:space-between;padding-top:8px;}
+.workout-hero-top{display:flex;align-items:center;justify-content:space-between;padding-top:calc(8px + var(--safe-t));}
 .icon-btn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);border:0;color:#fff;
   display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .finish-pill{background:#fff;color:var(--accent);border-radius:20px;padding:7px 18px;font-size:14px;font-weight:700;}
@@ -191,7 +191,7 @@ body{
 .rest-range-label{font-size:12px;opacity:.55;margin-top:6px;}
 
 /* ===== 统计页 ===== */
-.stat-header{display:flex;align-items:center;gap:18px;padding-top:8px;margin-bottom:10px;}
+.stat-header{display:flex;align-items:center;gap:18px;padding-top:calc(8px + var(--safe-t));margin-bottom:10px;}
 .stat-header .tab-text{font-size:17px;font-weight:600;color:var(--muted);padding-bottom:4px;}
 .stat-header .tab-text.active{color:var(--text);border-bottom:3px solid var(--accent);}
 .month-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
