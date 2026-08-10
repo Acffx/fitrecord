@@ -1,6 +1,8 @@
 /* ============================================================
-   FitRecord v4 增强包（对齐撸铁记）
+   FitRecord v4 增强包（原创作品）
    后加载，覆盖 app.js 中同名函数
+   © 2026 Acffx · 原创 · 保留所有权利
+   未经许可禁止商用、二次发布、去除版权标识
    ============================================================ */
 'use strict';
 
@@ -884,3 +886,59 @@ document.addEventListener('input', e=>{
 
 /* 首次加载：用新版函数重渲染当前页 */
 try{ setTab(currentTab || 'train'); }catch(e){}
+
+/* ============================================================
+   网站访问统计（不蒜子，免费、无需注册、国内可访问）
+   在「我的」页底部显示累计访问人次
+   ============================================================ */
+(function(){
+  /* 包装 renderMe：在返回的 HTML 末尾追加统计行 */
+  const _renderMeBase = renderMe;
+  renderMe = function(){
+    let html = _renderMeBase();
+    const statLine =
+      '<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:8px;">' +
+      '👀 本站访问 <b id="busuanzi_value_site_pv" style="color:var(--accent);font-weight:700;">…</b> 人次 · 访客 <b id="busuanzi_value_site_uv" style="color:var(--accent);font-weight:700;">…</b> 人' +
+      '</div>';
+    /* 插入到最后一行（版本信息）之前 */
+    const marker = '<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px;">FitRecord 网页版 · 数据仅存在本地</div>';
+    if(html.indexOf(marker) !== -1) html = html.replace(marker, statLine + '\n    ' + marker);
+    else html += '\n' + statLine;
+    return html;
+  };
+
+  /* 页面加载时触发一次计数 + 渲染后刷新数字 */
+  function refreshBusuanzi(){
+    const pv = document.getElementById('busuanzi_value_site_pv');
+    if(!pv) return;
+    const cb = 'busuanzi_cb_' + Date.now();
+    window[cb] = function(data){
+      try{
+        if(data && data.site_pv != null){
+          const e1 = document.getElementById('busuanzi_value_site_pv');
+          const e2 = document.getElementById('busuanzi_value_site_uv');
+          if(e1) e1.textContent = data.site_pv;
+          if(e2) e2.textContent = data.site_uv;
+        }
+      }catch(err){}
+      delete window[cb];
+    };
+    const s = document.createElement('script');
+    s.src = 'https://busuanzi.ibruce.info/busuanzi?jsonpCallback=' + cb;
+    s.onerror = function(){ delete window[cb]; };
+    document.head.appendChild(s);
+  }
+
+  /* 切到「我的」tab 时刷新（包装 setTab） */
+  const _setTabBase = setTab;
+  setTab = function(tab){
+    const ret = _setTabBase(tab);
+    if(tab === 'me') setTimeout(refreshBusuanzi, 120);
+    return ret;
+  };
+
+  /* 首次加载时如果正好在「我的」页也刷新 */
+  window.addEventListener('load', function(){
+    if(currentTab === 'me') setTimeout(refreshBusuanzi, 200);
+  });
+})();
