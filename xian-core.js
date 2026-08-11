@@ -426,21 +426,59 @@ function renderMain(container){
   var ffmiTxt = cr ? 'FFMI：'+cr.ffmi.toFixed(1) : 'FFMI：--';
   var dbg = (root.debuffs||[]).map(function(d){ return '<span class="debuff-tag">'+d.name+'</span>'; }).join('');
 
-  var bodyCells = '';
+  /* === 增强版身体数据（多围度 + 自动算 BMI/LBM/FFMI/预估体脂率） === */
   var p = getProfile();
   var b = getBodyLatest() || {};
-  var cells = [
-    {k:'身高', n:p.height||'--', u:'cm'},
-    {k:'体重', n:cr?cr.weight:'--', u:'kg'},
-    {k:'胸围', n:num(b.chest,0)||'--', u:'cm'},
-    {k:'腰围', n:num(b.waist,0)||'--', u:'cm'},
-    {k:'臂围', n:num(xian.body.arm,0)||num(b.arm,0)||'--', u:'cm'},
-    {k:'大腿围', n:num(xian.body.thigh,0)||num(b.thigh,0)||'--', u:'cm'}
-  ];
-  cells.forEach(function(c){ bodyCells += '<div class="bd-cell"><div class="k">'+c.k+'</div><div class="n">'+c.n+'<span class="u"> '+c.u+'</span></div></div>'; });
+  var h = num(p.height, 0);
+  var w = num(b.weight, 0) || num(p.weight, 0);
+  var chest = num(b.chest, 0);
+  var waist = num(b.waist, 0);
+  var hip = num(b.hip, 0);
+  var arm = num(xian.body.arm, 0) || num(b.arm, 0);
+  var thigh = num(xian.body.thigh, 0) || num(b.thigh, 0);
+  var calf = num(xian.body.calf, 0) || num(b.calf, 0);
+  var neck = num(xian.body.neck, 0) || num(b.neck, 0);
+  var gripL = num(xian.body.gripL, 0) || num(b.gripL, 0);
+  var gripR = num(xian.body.gripR, 0) || num(b.gripR, 0);
+  var bodyFat = num(b.bodyFat, 0) || num(xian.body.bodyFat, 0);
+  /* 自动计算 BMI */
+  var bmi = (h>0 && w>0) ? (w / Math.pow(h/100, 2)) : 0;
+  var bmiLevel = !bmi ? '--' : (bmi<18.5?'偏瘦':bmi<24?'正常':bmi<28?'超重':'肥胖');
+  /* LBM（瘦体重）— FFMI 公式（文档）：LBM = 体重 × (1 - 预估体脂率/100） */
+  var estFat = (cr && cr.estFat) ? cr.estFat*100 : 0;
+  var lbm = (w>0 && estFat>0) ? w*(1-estFat/100) : 0;
+  /* FFMI 显示（已在 cr.ffmi） */
+
+  var cell = function(label, val, unit){ return '<div class="bd-cell"><div class="k">'+label+'</div><div class="n">'+ (val||'--') +'<span class="u"> '+ (unit||'') +'</span></div></div>'; };
+  /* 上半部分：基础测量 */
+  var bodyTop = '<div class="bd-grid-3">'+
+    cell('身高', h, 'cm')+
+    cell('体重', w, 'kg')+
+    cell('BMI', bmi?bmi.toFixed(1):'--', bmiLevel)+
+  '</div>';
+  /* 下半部分：六围 + 握力 + 体脂率 */
+  var bodyMid = '<div class="bd-grid-3" style="margin-top:8px;">'+
+    cell('胸围', chest, 'cm')+
+    cell('腰围(空腹)', waist, 'cm')+
+    cell('臀围', hip, 'cm')+
+    cell('放松臂围', arm, 'cm')+
+    cell('大腿围', thigh, 'cm')+
+    cell('小腿围', calf, 'cm')+
+    cell('颈围', neck, 'cm')+
+    cell('握力 左/右', (gripL||gripR)?(gripL+'/'+gripR):'--', 'kg')+
+    cell('体脂率', estFat?estFat.toFixed(1):'--', '%')+
+  '</div>';
+  /* FFMI 计算摘要（实时根据填写数据） */
+  var ffmiSummary = '<div class="ffmi-summary">'+
+    '<div class="ffmi-item"><div class="ffmi-k">FFMI</div><div class="ffmi-v">'+(cr?cr.ffmi.toFixed(1):'--')+'</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">瘦体重 LBM</div><div class="ffmi-v">'+(lbm?lbm.toFixed(1):'--')+' kg</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">预估体脂率</div><div class="ffmi-v">'+(estFat?estFat.toFixed(1):'--')+'%</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">灵根倍率</div><div class="ffmi-v" style="color:'+root.color+';">×'+root.mult.toFixed(2)+'</div></div>'+
+  '</div>';
 
   container.innerHTML =
     '<div class="xc-page">'+
+      /* ① 状态栏 */
       '<div class="realm-strip" style="--dao:'+dao.color+';">'+
         '<div class="realm-ic">'+realmIcon(xian.realm)+'</div>'+
         '<div class="realm-info">'+
@@ -450,24 +488,37 @@ function renderMain(container){
           '<div class="realm-prog-txt">'+(nextRealm?('距 '+nextRealm.name+'：力量达标 + 五围达标'):'已达肉身巅峰')+'</div>'+
         '</div>'+
       '</div>'+
+      /* ② 灵根条 */
       '<div class="root-strip">'+
         '<span class="root-badge" style="background:'+root.color+'22;color:'+root.color+';">'+root.name+'</span>'+
         '<span class="root-ffmi">'+ffmiTxt+'</span>'+dbg+
       '</div>'+
-      /* === 肉身档案提到道途上边（用户要求 v8.2） === */
-      '<div class="sec-title">🧬 肉身档案 <span class="sub">点击编辑测算灵根</span></div>'+
-      '<div class="body-card"><div class="body-grid">'+bodyCells+'</div>'+
-        '<button class="body-edit" data-act="editBody">✏️ 修改身体数据</button></div>'+
-      /* === 道途卡 === */
+      /* ③ 肉身档案（提到灵根下边 + 更详细 + 自动算 FFMI） */
+      '<div class="sec-title">🧬 肉身档案 <span class="sub">数据更详细 · 自动算 FFMI/BMI/LBM</span></div>'+
+      '<div class="body-card">'+
+        bodyTop + bodyMid + ffmiSummary +
+        '<button class="body-edit" data-act="editBody" style="margin-top:10px;">✏️ 修改身体数据（更详细字段）</button>'+
+      '</div>'+
+      /* ④ 道途 4 卡 */
       '<div class="sec-title">⚔️ 修炼道途 <span class="sub">点击切换</span></div>'+
       '<div class="dao-grid">'+daoGridHTML()+'</div>'+
-      /* === 功法修为：3 张模块化总览卡（点击进入系内详情） === */
+      /* ⑤ 功法修为：3 张模块化总览卡 */
       '<div class="sec-title">📜 功法修为 <span class="sub">点击进入系内功法（35 套）</span></div>'+
       '<div class="dao-modules">'+
         daoSummaryCard('tian', 12)+daoSummaryCard('xuan', 12)+daoSummaryCard('houtu', 11)+
       '</div>'+
+      /* ⑥ 系统说明 */
       '<div class="sec-title">📖 系统说明</div>'+
       '<div class="help-card">'+CONFIG.HELP.replace(/\n/g,'<br>')+'</div>'+
+      /* ⑦ 必要功能操作（置底） */
+      '<div class="sec-title">⚙️ 必要功能</div>'+
+      '<div class="action-grid">'+
+        '<button class="action-btn primary" data-act="editBody">✏️ 修改身体数据</button>'+
+        '<button class="action-btn gold" data-act="syncAll">🔄 同步训练修为</button>'+
+        '<button class="action-btn ghost" data-act="openHelp">📖 系统说明</button>'+
+        '<div class="action-row"><span style="font-size:12px;color:#8fa3bf;">✨ 粒子动画</span>'+
+          '<label class="switch"><input type="checkbox" id="xianFxSwitch" '+(fxEnabled?'checked':'')+'><span class="sl"></span></label></div>'+
+      '</div>'+
       '<div style="height:100px;"></div>'+
     '</div>';
 }
@@ -545,17 +596,31 @@ function openBodyEditor(container){
   var b = getBodyLatest() || {};
   var m = document.createElement('div');
   m.className='modal';
-  m.innerHTML = '<div class="modal-card"><h3>🧬 修改身体数据</h3>'+
-    '<div class="form-field"><label>身高 cm（基准184自适应）</label><input id="edHeight" type="number" step="0.1" value="'+(p.height||'')+'"/></div>'+
-    '<div class="form-field"><label>空腹体重 kg</label><input id="edWeight" type="number" step="0.1" value="'+(num(b.weight,0)||num(p.weight,0)||'')+'"/></div>'+
+  m.innerHTML = '<div class="modal-card"><h3>🧬 修改身体数据（详细字段）</h3>'+
+    '<p style="font-size:12px;color:#8fa3bf;margin:-8px 0 12px;">填写后自动计算 BMI/FFMI/预估体脂率/灵根</p>'+
+    /* 基础 */
     '<div class="form-grid">'+
+      '<div class="form-field"><label>身高 cm（基准184）</label><input id="edHeight" type="number" step="0.1" min="100" max="230" value="'+(p.height||'')+'"/></div>'+
+      '<div class="form-field"><label>空腹体重 kg</label><input id="edWeight" type="number" step="0.1" min="20" max="200" value="'+(num(b.weight,0)||num(p.weight,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>体脂率 %（可选）</label><input id="edBodyFat" type="number" step="0.1" min="3" max="50" value="'+(num(b.bodyFat,0)||num(xian.body.bodyFat,0)||'')+'"/></div>'+
+    '</div>'+
+    '<div class="form-grid" style="margin-top:8px;">'+
       '<div class="form-field"><label>胸围 cm</label><input id="edChest" type="number" step="0.1" value="'+(num(b.chest,0)||'')+'"/></div>'+
       '<div class="form-field"><label>空腹腰围 cm</label><input id="edWaist" type="number" step="0.1" value="'+(num(b.waist,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>臀围 cm</label><input id="edHip" type="number" step="0.1" value="'+(num(b.hip,0)||'')+'"/></div>'+
+    '</div>'+
+    '<div class="form-grid" style="margin-top:8px;">'+
       '<div class="form-field"><label>放松臂围 cm</label><input id="edArm" type="number" step="0.1" value="'+(num(xian.body.arm,0)||num(b.arm,0)||'')+'"/></div>'+
       '<div class="form-field"><label>大腿围 cm</label><input id="edThigh" type="number" step="0.1" value="'+(num(xian.body.thigh,0)||num(b.thigh,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>小腿围 cm</label><input id="edCalf" type="number" step="0.1" value="'+(num(xian.body.calf,0)||num(b.calf,0)||'')+'"/></div>'+
+    '</div>'+
+    '<div class="form-grid" style="margin-top:8px;">'+
+      '<div class="form-field"><label>颈围 cm</label><input id="edNeck" type="number" step="0.1" value="'+(num(xian.body.neck,0)||num(b.neck,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>握力 左 kg</label><input id="edGripL" type="number" step="0.1" value="'+(num(xian.body.gripL,0)||num(b.gripL,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>握力 右 kg</label><input id="edGripR" type="number" step="0.1" value="'+(num(xian.body.gripR,0)||num(b.gripR,0)||'')+'"/></div>'+
     '</div>'+
     '<div class="form-actions"><button class="btn ghost" data-act="bodyCancel">取消</button>'+
-    '<button class="btn primary" data-act="bodySave">保存</button></div></div>';
+    '<button class="btn primary" data-act="bodySave">保存并重算</button></div></div>';
   document.body.appendChild(m);
   m.addEventListener('click', function(e){
     if(e.target.dataset.act==='bodyCancel') m.remove();
@@ -566,23 +631,43 @@ function openBodyEditor(container){
       var waist = num(document.getElementById('edWaist').value, 0);
       var arm = num(document.getElementById('edArm').value, 0);
       var thigh = num(document.getElementById('edThigh').value, 0);
+      var bodyFat = num(document.getElementById('edBodyFat').value, 0);
+      var hip = num(document.getElementById('edHip').value, 0);
+      var calf = num(document.getElementById('edCalf').value, 0);
+      var neck = num(document.getElementById('edNeck').value, 0);
+      var gripL = num(document.getElementById('edGripL').value, 0);
+      var gripR = num(document.getElementById('edGripR').value, 0);
       if(h<=0 || w<=0){ toastQ(CONFIG.TOAST.badVal); return; }
+      if(h<100 || h>230){ toastQ('身高范围 100-230cm，请重新输入'); return; }
+      if(w<20 || w>200){ toastQ('体重范围 20-200kg，请重新输入'); return; }
       state.profile = state.profile || {};
       state.profile.height = h;
       if(!state.bodyLog) state.bodyLog = [];
       var d = new Date();
       var ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      var entry = {date:ds, weight:w, bodyFat:'', bmr:'', chest:chest||'', waist:waist||'', hip:'', skeletal:'', visceral:''};
+      var entry = {date:ds, weight:w, bodyFat:bodyFat||'', bmr:'', chest:chest||'', waist:waist||'', hip:hip||'', skeletal:'', visceral:''};
       var idx = state.bodyLog.findIndex(function(x){return x.date===ds;});
       if(idx>=0) state.bodyLog[idx] = Object.assign(state.bodyLog[idx], entry);
       else state.bodyLog.push(entry);
-      xian.body.arm = arm; xian.body.thigh = thigh;
+      /* 修仙模块私有补充字段（臂围/大腿围/小腿围/颈围/握力，APP 缺这些） */
+      xian.body.arm = arm;
+      xian.body.thigh = thigh;
+      xian.body.calf = calf;
+      xian.body.neck = neck;
+      xian.body.gripL = gripL;
+      xian.body.gripR = gripR;
+      if(bodyFat) xian.body.bodyFat = bodyFat;
       save(); m.remove();
+      /* 立即重算并显示 */
       var root = getRoot();
-      if(root && root.ffmi) toastQ('灵根已更新：'+root.name+'（FFMI '+root.ffmi.toFixed(1)+'）');
+      if(root && root.ffmi){
+        toastQ('灵根已更新：'+root.name+'（FFMI '+root.ffmi.toFixed(1)+'）');
+      } else {
+        toastQ('数据已保存');
+      }
       var brk = checkBreak();
       if(brk && brk.break) showShade('✨ 突破！'+brk.realm.name, brk.realm.sub, brk.realm.foot, CONFIG.DAOS[xian.dao].color, 2200);
-      renderMain(container);
+      if(container) renderMain(container);
     }
   });
 }
@@ -593,12 +678,47 @@ function bindEvents(container){
     var mainEl = e.target.closest('[data-main]');
     if(act && act.dataset.act === 'editBody'){ openBodyEditor(container); return; }
     if(act && act.dataset.act === 'backOverview'){ renderMain(container); return; }
+    if(act && act.dataset.act === 'syncAll'){
+      /* 手动同步修为 */
+      var pending = (state.workouts||[]).filter(function(w){return !w.cultivationSettled;});
+      if(!pending.length){ toastQ(CONFIG.TOAST.noNew); return; }
+      var r = API.autoSettle(false);
+      toastQ(r.settled>0?CONFIG.TOAST.syncDone:CONFIG.TOAST.noNew);
+      if(container) renderMain(container);
+      return;
+    }
+    if(act && act.dataset.act === 'openHelp'){
+      openHelpSheet(container);
+      return;
+    }
     if(daoEl){
       var dk = daoEl.dataset.dao;
       if(daoEl.classList.contains('dao-module')){ renderDaoDetail(container, dk); return; }
       switchDao(dk, container); return;
     }
     if(mainEl){ toggleMain(mainEl.dataset.main, container); return; }
+  });
+  /* 粒子开关 */
+  var fxBox = document.getElementById('xianFxSwitch');
+  if(fxBox && !fxBox.dataset.bound){
+    fxBox.dataset.bound = '1';
+    fxBox.addEventListener('change', function(){
+      fxEnabled = this.checked;
+      document.body.classList.toggle('no-fx', !fxEnabled);
+      try{ localStorage.setItem('fitrecord_xian_fx', fxEnabled?'1':'0'); }catch(e){}
+      toastQ(fxEnabled?'粒子动画已开启':'粒子动画已关闭');
+    });
+  }
+}
+function openHelpSheet(container){
+  var m = document.createElement('div');
+  m.className='modal';
+  m.innerHTML = '<div class="modal-card"><h3>📖 健体修仙录 · 系统说明</h3>'+
+    CONFIG.HELP.replace(/\n/g,'<br>')+
+    '<div class="form-actions"><button class="btn primary" data-act="closeHelp">关闭</button></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){
+    if(e.target.dataset.act==='closeHelp') m.remove();
   });
 }
 
@@ -659,7 +779,23 @@ function injectStyle(){
     '.main-btn.on{background:linear-gradient(90deg,#f59e0b,#fbbf24);color:#111;border-color:transparent;font-weight:700;}',
     '.skill-effect{font-size:10px;color:#7f9cbd;margin-top:6px;font-style:italic;}',
     '.body-card{background:var(--card,#131c31);border-radius:14px;padding:12px;}',
-    '.body-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}',
+    '.body-grid,.bd-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}',
+    '.bd-cell{background:#1a2540;border-radius:10px;padding:8px;text-align:center;}',
+    '.bd-cell .k{font-size:10px;color:var(--muted,#8fa3bf);}',
+    '.bd-cell .n{font-size:14px;font-weight:800;margin-top:2px;}',
+    '.bd-cell .u{font-size:10px;color:var(--muted,#8fa3bf);font-weight:400;}',
+    /* FFMI 自动计算摘要 */
+    '.ffmi-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed #26314d;}',
+    '.ffmi-item{background:linear-gradient(135deg,#1a2540,#26314d);border-radius:10px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;}',
+    '.ffmi-item .ffmi-k{font-size:11px;color:#8fa3bf;}',
+    '.ffmi-item .ffmi-v{font-size:15px;font-weight:800;color:#fbbf24;font-variant-numeric:tabular-nums;}',
+    /* 必要功能按钮区 */
+    '.action-grid{display:flex;flex-direction:column;gap:10px;}',
+    '.action-btn{border:0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;width:100%;}',
+    '.action-btn.primary{background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;}',
+    '.action-btn.gold{background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;}',
+    '.action-btn.ghost{background:#1a2540;color:#e2e8f0;border:1px solid #26314d;}',
+    '.action-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#131c31;border-radius:12px;border:1px solid #26314d;}',
     '.bd-cell{background:#1a2540;border-radius:10px;padding:8px;text-align:center;}',
     '.bd-cell .k{font-size:10px;color:var(--muted,#8fa3bf);}',
     '.bd-cell .n{font-size:15px;font-weight:800;margin-top:2px;}',
