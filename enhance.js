@@ -376,11 +376,31 @@ function renderWorkoutList(){
     const restTag = it.restSec>0 ? `<span class="tag grey" style="margin-left:4px;">休息${it.restSec}s</span>` : '';
     const supTag = it.supersetWith!==null && it.supersetWith!==undefined ? `<span class="tag warn" style="margin-left:4px;">超级组</span>` : '';
     const notesTag = it.notes ? `<div style="font-size:11px;color:var(--accent);padding:2px 0 4px 4px;">📝 ${escapeHtml(it.notes)}</div>` : '';
+    const isSupCard = (it.supersetWith !== null && it.supersetWith !== undefined);
     const rows = it.sets.map((s,j)=>{
       const refSet = last && last.sets[j];
       const wTxt = (s.weight!==''&&s.weight!==null&&s.weight!==undefined&&+s.weight>0) ? conv(s.weight) : (refSet?conv(refSet.weight):'0');
       const rTxt = (+s.reps>0) ? s.reps : (refSet?refSet.reps:'0');
       const wEmpty = !(+s.weight>0), rEmpty = !(+s.reps>0);
+      /* v8.10: 超级组每组双重量双次数（左右侧训练） */
+      const w2 = s._w2;
+      const r2 = s._r2;
+      const w2Txt = (w2!==''&&w2!==null&&w2!==undefined&&+w2>0) ? conv(w2) : '0';
+      const r2Txt = (+r2>0) ? r2 : '0';
+      const w2Empty = !(+w2>0), r2Empty = !(+r2>0);
+      const valPairHtml = isSupCard
+        ? '<div class="set-val-pair">'+
+            '<button class="set-val-pair-item ${wEmpty?"empty":""}" data-act="wheelW" data-ex="'+i+'" data-set="'+j+'">'+wTxt+'</button>'+
+            '<span class="set-val-divider">/</span>'+
+            '<button class="set-val-pair-item ${w2Empty?"empty":""}" data-act="wheelW2" data-ex="'+i+'" data-set="'+j+'">'+w2Txt+'</button>'+
+          '</div>'+
+          '<div class="set-val-pair">'+
+            '<button class="set-val-pair-item ${rEmpty?"empty":""}" data-act="wheelR" data-ex="'+i+'" data-set="'+j+'">'+rTxt+'</button>'+
+            '<span class="set-val-divider">/</span>'+
+            '<button class="set-val-pair-item ${r2Empty?"empty":""}" data-act="wheelR2" data-ex="'+i+'" data-set="'+j+'">'+r2Txt+'</button>'+
+          '</div>'
+        : '<button class="set-val ${wEmpty?"empty":""}" data-act="wheelW" data-ex="'+i+'" data-set="'+j+'">'+wTxt+'</button>'+
+          '<button class="set-val ${rEmpty?"empty":""}" data-act="wheelR" data-ex="'+i+'" data-set="'+j+'">'+rTxt+'</button>';
       return `
       <div class="set-swipe">
         <div class="set-actions">
@@ -394,10 +414,9 @@ function renderWorkoutList(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>删除
           </button>
         </div>
-        <div class="set-row ${s.warmup?'warmup-row':''}">
+        <div class="set-row ${s.warmup?'warmup-row':''} ${isSupCard?'set-row-sup':''}">
           <span class="set-no">${j+1}${s.warmup?'<span class="wu">热身</span>':''}</span>
-          <button class="set-val ${wEmpty?'empty':''}" data-act="wheelW" data-ex="${i}" data-set="${j}">${wTxt}</button>
-          <button class="set-val ${rEmpty?'empty':''}" data-act="wheelR" data-ex="${i}" data-set="${j}">${rTxt}</button>
+          ${valPairHtml}
           <button class="rpe-btn ${s.rpe?'hot':''}" data-act="rpeOpen" data-ex="${i}" data-set="${j}">${s.rpe||'—'}</button>
           <button class="set-done-btn ${s.done?'completed':''}" data-act="doneSet" data-ex="${i}" data-set="${j}">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -535,11 +554,31 @@ function openWheelFor(i, j, field){
       s.weight = it.lb ? +(v*0.4536).toFixed(1) : v;
       renderWorkoutList();
     });
-  } else {
+  } else if(field==='reps'){
     const values = [];
     for(let v=1; v<=100; v++) values.push(v);
     openWheel('第'+(j+1)+'组 · '+it.name, '次', values, +s.reps||12, v=>{
       s.reps = v;
+      renderWorkoutList();
+    });
+  } else if(field==='_w2'){
+    /* v8.10: 超级组双重量第二值（左侧/右侧训练） */
+    const unit = it.lb ? 'LB' : 'KG';
+    const conv = w => it.lb ? (w/0.4536) : w;
+    const step = it.lb ? 5 : 2.5;
+    const max = it.lb ? 445 : 200;
+    const values = [];
+    for(let v=0; v<=max; v+=step) values.push(+v.toFixed(1));
+    const cur = (+s._w2>0) ? conv(+s._w2) : 0;
+    openWheel('第'+(j+1)+'组 · '+it.name+' (右侧)', unit, values, cur, v=>{
+      s._w2 = it.lb ? +(v*0.4536).toFixed(1) : v;
+      renderWorkoutList();
+    });
+  } else if(field==='_r2'){
+    const values = [];
+    for(let v=1; v<=100; v++) values.push(v);
+    openWheel('第'+(j+1)+'组 · '+it.name+' (右侧)', '次', values, +s._r2||12, v=>{
+      s._r2 = v;
       renderWorkoutList();
     });
   }
@@ -863,6 +902,9 @@ document.addEventListener('click', e=>{
   // 滚轮
   if(a==='wheelW'){ openWheelFor(+act.dataset.ex, +act.dataset.set, 'weight'); return; }
   if(a==='wheelR'){ openWheelFor(+act.dataset.ex, +act.dataset.set, 'reps'); return; }
+  /* v8.10: 超级组双重量/双次数（左右侧训练） */
+  if(a==='wheelW2'){ openWheelFor(+act.dataset.ex, +act.dataset.set, '_w2'); return; }
+  if(a==='wheelR2'){ openWheelFor(+act.dataset.ex, +act.dataset.set, '_r2'); return; }
   if(a==='wheelOk'){
     if(wheelCtx && wheelCtx.cb) wheelCtx.cb(wheelCtx.values[wheelCtx.idx]);
     wheelCtx = null; closeSheet(); return;
@@ -2519,6 +2561,28 @@ document.addEventListener('click', e=>{
     if(s.done) xianGainFromSet(session.items[i], s);
   }, 50);
 }, true);
+/* ---------- v8.10: 超级组同步完成（两个一起算一组完成） ---------- */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="doneSet"]');
+  if(!act) return;
+  const i = +act.dataset.ex, j = +act.dataset.set;
+  setTimeout(()=>{
+    if(!session || !session.items[i] || !session.items[i].sets[j]) return;
+    const it = session.items[i];
+    const sw = it.supersetWith;
+    if(sw === null || sw === undefined) return;
+    if(!session.items[sw]) return;
+    /* 配对动作同 j set 也同步 done（保留用户单独 toggle 空间：只在两 set done 状态不同时同步） */
+    const sA = it.sets[j];
+    const sB = session.items[sw].sets[j];
+    if(!sB) return;
+    if(sB.done !== sA.done){
+      sB.done = sA.done;
+      save();
+      renderWorkoutList();
+    }
+  }, 80);
+}, true);
 const _doneSetBusy = new Map();
 document.addEventListener('click', e=>{
   const act = e.target.closest('[data-act="doneSet"]');
@@ -2976,7 +3040,8 @@ try{
         var list = byDate[ds]||[];
         var cls = (list.length?'has-workout ':'') + (ds===today?'today':'');
         var tip = list.length ? list.length+' 次训练' : '';
-        cells += '<div class="cal-day '+cls+'" '+(tip?'title="'+tip+'"':'')+'>'+d+'</div>';
+        /* v8.10: 点击日历日期 → 弹 sheet（查看记录 + 添加历史/有氧），参考截图8 */
+        cells += '<div class="cal-day '+cls+'" data-act="viewDay" data-date="'+ds+'" '+(tip?'title="'+tip+'"':'')+'>'+d+'</div>';
       }
       var totalWorkouts = safe.workouts.length;
       var totalSec = safe.workouts.reduce(function(a,w){ return a+(+w.duration||0); }, 0);
