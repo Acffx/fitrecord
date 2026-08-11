@@ -1940,9 +1940,10 @@ function openFolderEditor(folder=null){
 function openSheet(html, fullScreen){
   var sheet = $('#sheet');
   sheet.innerHTML = html;
+  /* v8.12 修：默认分支也必须 remove('hidden')——之前 closeSheet 加了 hidden 后下次 openSheet 不显示（用户看到的"添加按钮没反应"） */
+  sheet.classList.remove('hidden');
   if(fullScreen){
     sheet.classList.add('fullscreen-sheet');
-    sheet.classList.remove('hidden');
   } else {
     sheet.classList.remove('fullscreen-sheet');
   }
@@ -2219,6 +2220,18 @@ document.addEventListener('click', e=>{
     return;
   }
   if(a==='saveCardioNew'){ saveCardioNew(); return; }
+  /* v8.12: 身高按钮 data-act="wheelHeight" 委托兜底 */
+  if(a==='wheelHeight'){
+    var p2 = state.profile || {};
+    openHeightWheel(p2.height || 170, function(v){
+      var bh2 = document.getElementById('bd-height-btn');
+      if(bh2){
+        bh2.innerHTML = v + '<span style="float:right;color:#94a3b8;">cm</span>';
+        bh2.dataset.value = v;
+      }
+    });
+    return;
+  }
   if(a==='saveProfile'){
     state.profile.name = $('#p-name').value;
     state.profile.height = +$('#p-h').value || 170;
