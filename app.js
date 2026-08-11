@@ -551,13 +551,13 @@ function viewDay(dateStr){
     </div>`;
   }).join('');
   const isToday = dateStr === todayStr();
-  /* 全屏 sheet（仿照截图7 底部弹起 sheet） */
+  /* v8.14: 深色主题全屏 sheet + ×关闭 + 点击空白关闭 */
   openSheet(`
-    <div class="day-sheet">
+    <div class="day-sheet day-sheet-dark">
       <div class="ds-head">
+        <button class="ds-close" data-act="daySheetClose" aria-label="关闭">×</button>
         <h3>${d.getMonth()+1}月${d.getDate()}日 记录</h3>
         <span class="ds-pick">选择查看类型</span>
-        <button class="ds-close" data-act="closeSheet" style="position:absolute;right:14px;top:14px;background:transparent;color:#94a3b8;border:0;font-size:18px;cursor:pointer;">×</button>
       </div>
       ${isToday ? `<div class="ds-state">今日状态</div>
       <div class="ds-emojis" data-act="setStateEmoji">
@@ -1287,12 +1287,11 @@ function renderBodyData(){
   const sk = latest ? latest.skeletal : '';
   const vi = latest ? latest.visceral : '';
   const h = p.height;
-  /* v8.13 单元格支持独立点击编辑（路径A 单项快速修改） */
+  /* v8.14 单元格支持独立点击编辑（路径A 单项快速修改） + 容错显示"未设置" */
   const cell = (k,v,u,field)=>{
-    const has = v !== '' && v != null;
     return `<div class="bd-cell bd-clickable" data-act="bdEditField" data-field="${field}">`+
       `<div class="k">${k}</div>`+
-      `<div class="n">${has?v:'<span class="not-set">未设置</span>'}${has?` <span class="u">${u}</span>`:''} <span class="bd-arrow">›</span></div>`+
+      `<div class="n">${fixVal(v, u)} <span class="bd-arrow">›</span></div>`+
     `</div>`;
   };
   /* 数据概览 + 趋势图（参考截图2） */
@@ -1316,11 +1315,11 @@ function renderBodyData(){
     overview = `
       <div class="bd-overview">
         <div class="ov-head"><span>数据概览</span><span class="go">共 ${log.length} 条记录</span></div>
-        <div class="ov-row"><div class="ov-k">体重变化</div><div class="ov-v">${dW>=0?'+':''}${dW.toFixed(1)}<span class="u">kg</span></div></div>
+        <div class="ov-row"><div class="ov-k">体重变化</div><div class="ov-v">${(isNaN(dW) || dW === undefined) ? '<span class="not-set">未设置</span>' : (dW>=0?'+':'')+dW.toFixed(1)}<span class="u">kg</span></div></div>
         ${mini}
         <div class="ov-pills">
-          <span class="bd-pill">${dW>=0?'↗ 上升':'↘ 下降'}</span>
-          ${dF!==null?'<span class="bd-pill">体脂率 '+(dF>=0?'+':'')+dF.toFixed(1)+'%</span>':''}
+          <span class="bd-pill">${(isNaN(dW) || dW === undefined) ? '— 无数据' : (dW>=0?'↗ 上升':'↘ 下降')}</span>
+          ${dF!==null && !isNaN(dF)?'<span class="bd-pill">体脂率 '+(dF>=0?'+':'')+dF.toFixed(1)+'%</span>':''}
           <span class="bd-pill">记录周期 ${fmtMD(first.date)} ~ ${fmtMD(last.date)}</span>
         </div>
       </div>`;
@@ -1335,7 +1334,7 @@ function renderBodyData(){
     }
     return `<div class="bd-h-item">
       <div><div class="d">${b.date}${b.date===todayStr()?' · 今天':''}</div>
-        <div class="w">${b.weight} <span class="u">kg</span></div>${delta}</div>
+        <div class="w">${fixNum(b.weight) != null ? b.weight : '<span class=\"not-set\">未设置</span>'} <span class="u">kg</span></div>${delta}</div>
       <button class="bd-h-del" data-act="delBodyLog" data-date="${b.date}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
     </div>`;
   }).join('');
@@ -1347,7 +1346,7 @@ function renderBodyData(){
       <button class="btn primary sm" data-act="addBodyRecord">添加</button>
     </div>
     <div class="bd-weight-row">
-      <div class="bd-weight bd-clickable" data-act="bdEditField" data-field="weight" style="cursor:pointer;"><span class="n">${bw||'--'}</span><span class="u">kg</span><span class="bd-arrow" style="position:static;margin-left:10px;font-size:18px;">›</span></div>
+      <div class="bd-weight bd-clickable" data-act="bdEditField" data-field="weight" style="cursor:pointer;"><span class="n">${fixNum(bw) != null ? bw : '--'}</span><span class="u">kg</span><span class="bd-arrow" style="position:static;margin-left:10px;font-size:18px;">›</span></div>
       <button class="bd-edit-btn" data-act="addBodyRecord"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 修改</button>
     </div>
     <div class="bd-section">
@@ -1363,13 +1362,112 @@ function renderBodyData(){
     <div class="bd-history">${history || '<div class="empty">暂无记录，点击右上角「添加」</div>'}</div>
   `;
 }
-/* v8.11 复刻截图4：添加身体数据表单（含身高字段 + 滚轮选择器） */
 /* ============================================================
-   v8.13 身体数据模块：主页单项独立编辑（路径A）
-   - 主页每行点击 → 弹对应字段的滚轮选择器
-   - 选择完成 → 立即保存 + 生成新历史记录 + 关闭弹窗 + 刷新主页
-   - 数据双向同步（profile + bodyLog + state.workouts）
+   v8.14 通用数字输入弹窗（彻底替代滚轮选择器）
+   - 深色主题（与项目统一）
+   - 单 input + 数字键盘 + min/max 校验 + 取消/保存
+   - 临时输入完全独立，不会污染其他表单/弹窗
+   - 关闭：×按钮 / 取消按钮 / overlay 点击空白
    ============================================================ */
+function openNumberInput(opts){
+  var title = opts.title || '输入数值';
+  var unit = opts.unit || '';
+  var current = opts.current != null && !isNaN(opts.current) ? opts.current : '';
+  var placeholder = opts.placeholder || '';
+  var step = opts.step != null ? opts.step : 0.1;
+  var min = opts.min != null ? opts.min : null;
+  var max = opts.max != null ? opts.max : null;
+  var fieldName = opts.field || 'value';
+  var onSave = opts.onSave || function(){};
+  var onCancel = opts.onCancel || function(){};
+  /* 弹窗唯一 key，避免多弹窗临时数据冲突 */
+  var key = '__ni_' + fieldName + '_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  var html = '<div class="ni-sheet" data-ni-key="'+key+'">'+
+    '<div class="ni-head">'+
+      '<button class="ni-close" data-act="niClose" aria-label="关闭">×</button>'+
+      '<div class="ni-title">'+escapeHtml(title)+'</div>'+
+      '<button class="ni-save" data-act="niSave">保存</button>'+
+    '</div>'+
+    '<div class="ni-body">'+
+      '<div class="ni-input-wrap">'+
+        '<input id="'+key+'-input" class="ni-input" type="number" inputmode="decimal" step="'+step+'" '+(min!=null?'min="'+min+'"':'')+(max!=null?'max="'+max+'"':'')+' placeholder="'+escapeHtml(placeholder)+'" value="'+current+'"/>'+
+        (unit ? '<span class="ni-unit">'+escapeHtml(unit)+'</span>' : '')+
+      '</div>'+
+      '<div class="ni-tip">输入数值后点「保存」或按回车</div>'+
+    '</div>'+
+  '</div>';
+  openSheet(html, false);
+  /* 聚焦输入框 */
+  setTimeout(function(){
+    var inp = document.getElementById(key+'-input');
+    if(inp){
+      inp.focus();
+      /* input 数字框本身不需要滚轮 */
+    }
+  }, 80);
+  /* 保存事件（一次性绑定 sheet 内部委托） */
+  var sheet = $('#sheet');
+  var niHandler = function(e){
+    var btn = e.target.closest('[data-act]');
+    if(!btn) return;
+    var act = btn.dataset.act;
+    if(act === 'niSave'){
+      e.preventDefault(); e.stopPropagation();
+      var inp2 = document.getElementById(key+'-input');
+      var v = inp2 ? inp2.value : '';
+      var num = parseFloat(v);
+      if(v === '' || isNaN(num)){
+        /* 空输入 = 取消，不报错 */
+        closeSheet();
+        return;
+      }
+      if(min != null && num < min){ toast('数值不能小于 '+min); return; }
+      if(max != null && num > max){ toast('数值不能大于 '+max); return; }
+      closeSheet();
+      onSave(num);
+    } else if(act === 'niClose' || act === 'niCancel'){
+      e.preventDefault(); e.stopPropagation();
+      closeSheet();
+      onCancel();
+    }
+  };
+  sheet._niHandler = niHandler;
+  sheet.addEventListener('click', niHandler);
+  /* 回车提交 */
+  var inpKey = key+'-input';
+  setTimeout(function(){
+    var inp3 = document.getElementById(inpKey);
+    if(inp3){
+      inp3.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          var btn = sheet.querySelector('.ni-save');
+          if(btn) btn.click();
+        }
+      });
+    }
+  }, 100);
+}
+
+/* ============================================================
+   v8.14 数据容错工具：把 NaN/undefined/null/空字符串 统一显示为 "未设置"
+   ============================================================ */
+function fixVal(v, unit, opts){
+  opts = opts || {};
+  if(v === null || v === undefined || v === '' || (typeof v === 'number' && isNaN(v))){
+    if(opts.placeholder) return opts.placeholder;
+    return '<span class="not-set">未设置</span>';
+  }
+  var num = +v;
+  if(isNaN(num)) return '<span class="not-set">未设置</span>';
+  return num + (unit ? ' <span class="u">'+unit+'</span>' : '');
+}
+function fixNum(v){
+  if(v === null || v === undefined || v === '' || (typeof v === 'number' && isNaN(v))) return null;
+  var n = +v;
+  return isNaN(n) ? null : n;
+}
+
 function bdQuickEditField(fieldName){
   /* 字段配置：title, unit, min, max, step, current, saveKey */
   var configs = {
@@ -1391,30 +1489,30 @@ function bdQuickEditField(fieldName){
   /* 当前值：优先取最新 bodyLog，再 profile */
   var latest = (state.bodyLog && state.bodyLog.length) ? state.bodyLog[state.bodyLog.length-1] : null;
   var cur = latest && latest[cfg.saveKey] != null && latest[cfg.saveKey] !== '' ? +latest[cfg.saveKey] : (state.profile && state.profile[cfg.storeField] ? +state.profile[cfg.storeField] : (cfg.min + (cfg.max-cfg.min)/2));
-  openFieldWheel({
+  openNumberInput({
     title: cfg.title,
     field: fieldName,
     unit: cfg.unit,
     min: cfg.min, max: cfg.max, step: cfg.step,
     current: cur,
-    onPick: function(v){
-      /* 保存为新历史记录（不覆盖） */
+    placeholder: cfg.min + ' - ' + cfg.max,
+    onSave: function(v){
+      /* 保存为新历史记录（绝对不覆盖） */
       var date = todayStr();
       state.bodyLog = state.bodyLog || [];
       var entry = {date: date};
       entry[cfg.saveKey] = v;
       state.bodyLog.push(entry);
       state.bodyLog.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
-      /* 身高/体重 同步到 profile（用于 FFMI/LBM） */
+      /* 身高/体重/体脂率 同步到 profile（用于 FFMI/LBM） */
       if(fieldName === 'height' || fieldName === 'weight' || fieldName === 'bodyFat'){
         state.profile = state.profile || {};
-        state.profile[fieldName === 'bodyFat' ? 'bodyFat' : fieldName] = v;
+        state.profile[fieldName] = v;
       }
       save();
-      /* 刷新主页 + 关闭弹窗 */
       if(!$('#bodydata-view').classList.contains('hidden')) renderBodyData();
       else render();
-      toast(cfg.title.replace('选择','') + '已保存：' + v + ' ' + cfg.unit);
+      toast(cfg.title.replace('设置','') + '已保存：' + v + ' ' + cfg.unit);
     }
   });
 }
@@ -1464,8 +1562,8 @@ function openBodyRecordSheet(){
         <input id="bd-bmr" type="number" value="${cur('bmr')}"/>
       </div>
       <div class="bd-form-item">
-        <div class="bd-item-head"><span class="bd-icon">📏</span><span class="k">身高 cm <span style="color:#94a3b8;">（点选）</span></span></div>
-        <button id="bd-height-btn" type="button" class="bd-wheel-btn" data-act="wheelHeight" style="cursor:pointer;border:1px solid #475569;background:#1e293b;color:#e2e8f0;border-radius:10px;padding:10px;font-size:14px;text-align:left;width:100%;">${cur('height') ? cur('height') : '<span style=\'color:#94a3b8;\'>点击选择身高</span>'}<span style="float:right;color:#94a3b8;">cm</span></button>
+        <div class="bd-item-head"><span class="bd-icon">📏</span><span class="k">身高 cm</span></div>
+        <input id="bd-height" type="number" step="0.5" min="100" max="230" placeholder="100-230" value="${cur('height')}"/>
       </div>
       <div class="bd-form-item">
         <div class="bd-item-head"><span class="bd-icon">🦴</span><span class="k">骨骼肌 kg</span></div>
@@ -1493,165 +1591,25 @@ function openBodyRecordSheet(){
       <button class="btn primary" data-act="saveBodyData">保存</button>
     </div>
   `);
-  /* v8.13: 身高按钮点击事件已由 wheelHeight 委托统一处理（路径B 模式只更新 state0.values） */
+  /* v8.14: 所有输入框均为普通数字 input（彻底删除滚轮逻辑） */
 }
 
-/* ============================================================
-   v8.11 身体数据模块：身高滚轮选择器（复刻截图3）
-   ============================================================ */
-/* v8.13: 统一数值滚轮选择器
-   支持任意字段（身高/体重/体脂率/胸围/腰围/臀围/臂围/大腿/小腿/颈围/握力等）
-   关键改进：
-   - 深色主题（与项目主界面统一）
-   - 整区可滑动（wheel-wrap 容器任意位置 touch/wheel 都能调节）
-   - 单例模式：每次打开清理上一个 wheel 的所有 listener
-   - 返回方式：取消/×/空白点击都能关闭
-*/
-function openFieldWheel(opts){
-  /* opts: {title, field, unit, min, max, step, current, onPick, onCancel} */
-  var title = opts.title || '选择数值';
-  var field = opts.field || 'value';
-  var unit = opts.unit || '';
-  var min = +opts.min || 0;
-  var max = +opts.max || 100;
-  var step = +opts.step || 1;
-  var current = +opts.current || min;
-  var onPick = opts.onPick || function(){};
-  var onCancel = opts.onCancel || function(){};
-  var decimalDigits = (step < 1) ? 1 : 0;
-  /* 生成 values 数组 */
-  var values = [];
-  for(var v=min; v<=max+0.0001; v+=step){
-    values.push(+v.toFixed(decimalDigits || (decimalDigits>0?1:0)));
-  }
-  if(values.length === 0) values = [min];
-  var bestIdx = 0, bd = Infinity;
-  values.forEach(function(v, k){ var d = Math.abs(v-current); if(d<bd){bd=d;bestIdx=k;} });
-  /* 构建 HTML（深色主题） */
-  var html = '<div class="fw-sheet">'+
-    '<div class="fw-head">'+
-      '<button class="fw-close" data-act="fwClose" aria-label="关闭">×</button>'+
-      '<div class="fw-title">'+escapeHtml(title)+'</div>'+
-    '</div>'+
-    '<div class="fw-display">'+
-      '<div class="fw-row"><span class="fw-val" id="fw-val">'+values[bestIdx].toFixed(decimalDigits)+'</span><span class="fw-unit">'+escapeHtml(unit)+'</span></div>'+
-      '<div class="fw-band"></div>'+
-    '</div>'+
-    '<div class="fw-wheel-wrap" id="fw-wheel-wrap">'+
-      '<div class="fw-wheel" id="fw-wheel">'+
-        values.map(function(v,k){
-          return '<div class="fw-opt'+(k===bestIdx?' cur':'')+'" data-fwi="'+k+'">'+v.toFixed(decimalDigits)+'</div>';
-        }).join('')+
-      '</div>'+
-    '</div>'+
-    '<div class="fw-actions">'+
-      '<button class="btn ghost" data-act="fwCancel">取消</button>'+
-      '<button class="btn primary" data-act="fwOk">确定</button>'+
-    '</div>'+
-  '</div>';
-  openSheet(html, false);
-  /* 安装事件（单次有效） */
-  var wheel = document.getElementById('fw-wheel');
-  var wrap = document.getElementById('fw-wheel-wrap');
-  var sheet = $('#sheet');
-  if(!wheel || !wrap || !sheet) return;
-  /* 滚动到初始位置 */
-  var itemHeight = 44;
-  requestAnimationFrame(function(){ wheel.scrollTop = bestIdx*itemHeight; });
-  /* 监听滚动同步高亮 */
-  var scrollTimer = null;
-  function syncScroll(){
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(function(){
-      var idx = Math.max(0, Math.min(values.length-1, Math.round(wheel.scrollTop/itemHeight)));
-      var opts = wheel.querySelectorAll('.fw-opt');
-      for(var k=0; k<opts.length; k++){
-        opts[k].classList.toggle('cur', k===idx);
-      }
-      var vEl = document.getElementById('fw-val');
-      if(vEl) vEl.textContent = values[idx].toFixed(decimalDigits);
-      wheel._fwIdx = idx;
-    }, 60);
-  }
-  wheel.addEventListener('scroll', syncScroll, {passive:true});
-  /* 整区可滑动：在 wrap 上捕获 touch/wheel，强制转给 wheel */
-  var isTouching = false, lastY = 0;
-  function onTouchStart(e){
-    isTouching = true;
-    lastY = e.touches[0].clientY;
-  }
-  function onTouchMove(e){
-    if(!isTouching) return;
-    var y = e.touches[0].clientY;
-    var dy = lastY - y;
-    lastY = y;
-    wheel.scrollTop += dy;
-    syncScroll();
-    e.preventDefault();
-  }
-  function onTouchEnd(){ isTouching = false; }
-  wrap.addEventListener('touchstart', onTouchStart, {passive:true});
-  wrap.addEventListener('touchmove', onTouchMove, {passive:false});
-  wrap.addEventListener('touchend', onTouchEnd, {passive:true});
-  /* 鼠标 wheel 事件：让整个 wrap 都能滚 */
-  function onWheel(e){
-    if(Math.abs(e.deltaY) < 1) return;
-    wheel.scrollTop += e.deltaY;
-    syncScroll();
-    e.preventDefault();
-  }
-  wrap.addEventListener('wheel', onWheel, {passive:false});
-  /* 点 wheel-opt 直接跳到该值 */
-  wheel.querySelectorAll('.fw-opt').forEach(function(opt){
-    opt.addEventListener('click', function(){
-      var k = +opt.dataset.fwi;
-      wheel.scrollTop = k*itemHeight;
-      syncScroll();
-    });
-  });
-  /* 保存 wheel 到 sheet.dataset 便于事件委托访问 */
-  sheet.dataset.fwIdx = bestIdx;
-  /* 事件委托（fwOk/fwCancel/fwClose） */
-  var fwHandler = function(e){
-    var actBtn = e.target.closest('[data-act]');
-    if(!actBtn) return;
-    var actName = actBtn.dataset.act;
-    if(actName === 'fwOk'){
-      e.preventDefault(); e.stopPropagation();
-      var idx = (wheel._fwIdx != null) ? wheel._fwIdx : bestIdx;
-      var v = values[idx];
-      closeSheet();
-      onPick(v, idx);
-    } else if(actName === 'fwCancel' || actName === 'fwClose'){
-      e.preventDefault(); e.stopPropagation();
-      closeSheet();
-      onCancel();
-    }
-  };
-  /* 一次性，存到 sheet 上以便清理 */
-  sheet._fwHandler = fwHandler;
-  sheet.addEventListener('click', fwHandler);
-  /* 弹窗内点击空白处不关闭（用户在滚轮里点空白不算取消） */
-  sheet.addEventListener('click', function(e){
-    /* 阻止冒泡到 overlay？不需要，overlay click handler 已被 v8.13 移除 */
-  });
-  /* 关闭时清理（统一通过 closeSheet 触发） */
-  var origClose = closeSheet;
-  /* 单例：标记本次 wheel，避免重复 */
-  wheel._fwField = field;
-  wheel._fwValues = values;
-  wheel._fwDecimal = decimalDigits;
-}
-/* 兼容老函数（用于既有 openBodyRecordSheet 内部调用） */
+/* v8.14: openHeightWheel 函数保留以兼容旧调用，但内部走数字输入（不再使用滚轮） */
 function openHeightWheel(currentVal, cb){
-  openFieldWheel({
-    title:'选择身高',
+  if(typeof cb !== 'function') return;
+  openNumberInput({
+    title:'设置身高',
     field:'height',
     unit:'cm',
-    min:100, max:230, step:0.5,
-    current: currentVal || 170,
-    onPick: cb
+    current: currentVal,
+    step: 0.5, min: 100, max: 230,
+    placeholder:'100 - 230',
+    onSave: cb
   });
+}
+function openFieldWheel_DEPRECATED_DO_NOT_USE(opts){
+  /* v8.14: 此函数已废弃，所有滚轮选择器调用必须改用 openNumberInput */
+  console.warn('[v8.14] openFieldWheel is deprecated, use openNumberInput instead');
 }
 function startPlan(id, isPreset=false, opts={}){
   let src;
@@ -2425,42 +2383,8 @@ document.addEventListener('click', e=>{
     return;
   }
   if(a==='saveCardioNew'){ saveCardioNew(); return; }
-  /* v8.12: 身高按钮 data-act="wheelHeight" 委托兜底（路径A：只更新 input value，不保存） */
-  if(a==='wheelHeight'){
-    e.preventDefault();
-    var state0 = (typeof window._bdFormState !== 'undefined' && window._bdFormState) || null;
-    openFieldWheel({
-      title:'选择身高',
-      field:'height',
-      unit:'cm',
-      min:100, max:230, step:0.5,
-      current: (state.profile && state.profile.height) || 170,
-      onPick: function(v){
-        /* 路径B：在完整表单内，只更新表单字段，不关闭 */
-        if(state0 && state0.mode === 'fullForm'){
-          var bh = document.getElementById('bd-height-btn');
-          if(bh){
-            bh.innerHTML = v + '<span style="float:right;color:#94a3b8;">cm</span>';
-            bh.dataset.value = v;
-          }
-          state0.values.height = v;
-          toast('已选择身高 '+v+' cm');
-        } else {
-          /* 路径A：独立修改，直接保存（生成新历史） */
-          var entry = {date: todayStr(), height:v, weight: state.profile.weight || '', bodyFat:'', bmr:'', chest:'', waist:'', hip:'', skeletal:'', visceral:''};
-          state.bodyLog = state.bodyLog || [];
-          state.bodyLog.push(entry);
-          state.profile.height = v;
-          save();
-          if(!$('#bodydata-view').classList.contains('hidden')) renderBodyData();
-          else render();
-          toast('身高已保存：'+v+' cm');
-        }
-      }
-    });
-    return;
-  }
-
+  /* v8.14: 每日记录弹窗深色主题关闭按钮 */
+  if(a==='daySheetClose'){ closeSheet(); return; }
   /* v8.13 路径A：主页单项独立点击编辑 */
   if(a==='bdEditField'){
     e.preventDefault();
@@ -2468,7 +2392,7 @@ document.addEventListener('click', e=>{
     bdQuickEditField(fieldName);
     return;
   }
-  /* v8.13 fwOk/fwCancel/fwClose 由 sheet 内委托处理（openFieldWheel 自绑定） */
+  /* v8.14: fwOk/fwCancel/fwClose 已废弃（彻底删除滚轮） */
   if(a==='saveProfile'){
     state.profile.name = $('#p-name').value;
     state.profile.height = +$('#p-h').value || 170;
@@ -2508,16 +2432,15 @@ document.addEventListener('click', e=>{
   }
   if(a==='confirmClear'){ localStorage.removeItem(DB_KEY); localStorage.removeItem('fitrecord_v2'); localStorage.removeItem('fitrecord_v1'); state=defaultState(); save(); closeSheet(); render(); toast('数据已清空'); return; }
   if(a==='saveBodyData'){
-    /* v8.13 路径B：从 _bdFormState.values + 表单 input 合并，追加新历史 */
+    /* v8.14: 完整表单批量保存——所有字段均为 input number */
     var weightInput = +($('#bd-weight').value || 0);
     if(!weightInput){ toast('请输入体重'); return; }
     var date = $('#bd-date').value || todayStr();
-    var s0 = (typeof window._bdFormState !== 'undefined' && window._bdFormState) || null;
-    /* 优先使用表单 input value（用户可能手动输入），其次 _bdFormState.values */
-    var h = s0 && s0.values && s0.values.height ? +s0.values.height : 0;
+    var heightInput = +($('#bd-height').value || 0);
     var newEntry = {
       date: date,
       weight: weightInput,
+      height: heightInput || undefined,
       bodyFat: $('#bd-fat').value || '',
       bmr: $('#bd-bmr').value || '',
       chest: $('#bd-chest').value || '',
@@ -2526,17 +2449,15 @@ document.addEventListener('click', e=>{
       skeletal: $('#bd-skel').value || '',
       visceral: $('#bd-visc').value || ''
     };
-    if(h > 0){ /* 身高存到 entry（如果用户选过） */
-      /* 不直接覆盖 latest.height，单独存 height 字段（兼容历史数据） */
-      newEntry.height = h;
-      state.profile = state.profile || {};
-      state.profile.height = h;
-    }
+    if(!newEntry.height) delete newEntry.height;
     state.bodyLog = state.bodyLog || [];
     state.bodyLog.push(newEntry);
     state.bodyLog.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
+    if(heightInput > 0){
+      state.profile = state.profile || {};
+      state.profile.height = heightInput;
+    }
     save();
-    /* 清理 _bdFormState */
     window._bdFormState = null;
     closeSheet();
     if(!$('#bodydata-view').classList.contains('hidden')) renderBodyData();
