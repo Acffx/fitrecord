@@ -998,6 +998,8 @@ try{ setTab(currentTab || 'train'); }catch(e){}
     if(tab === 'me') setTimeout(refreshBusuanzi, 120);
     return ret;
   };
+  /* 暴露给 v8.1 权威 setTab 使用 */
+  window.__refreshBusuanzi = refreshBusuanzi;
 
   /* 首次加载时如果正好在「我的」页也刷新 */
   window.addEventListener('load', function(){
@@ -2631,4 +2633,162 @@ try{ document.head && document.head.appendChild(xianStageStyle); }catch(e){}
   .empty{color:#8fa3bf;}
   `;
   document.head.appendChild(st);
+})();
+
+/* ============================================================
+   v8.1 权威修复（2026-08-11）：setTab/render 最终覆盖
+   ① 移除 v7.0 fade 延迟（白屏/卡顿/错乱根因）
+   ② 修仙页底部保留 tabbar，可自由切换
+   ③ 全局修仙主题完整覆盖（所有页面统一深色）
+   ============================================================ */
+
+/* ---------- setTab 权威版（同步渲染，无延迟，无 opacity 归零） ---------- */
+/* 直接重定义 setTab：同步渲染 + 保留 tabbar */
+setTab = function(tab){
+  currentTab = tab;
+  $$('#tabbar .tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
+  /* topbar：训练/动作库/修仙页隐藏（修仙页用页内布局） */
+  $('#topbar').classList.toggle('hidden', tab === 'train' || tab === 'library' || tab === 'cultivation');
+  if(tab !== 'train' && tab !== 'library' && tab !== 'cultivation'){
+    var titles = {stats:'统计', me:'我的'};
+    $('#topbar-title').textContent = titles[tab] || 'FitRecord';
+  }
+  /* tabbar 始终可见（训练进行中会由训练视图自己隐藏） */
+  $('#tabbar').classList.remove('hidden');
+  render();
+  /* 兼容 busuanzi 访问统计（原包装被覆盖后手动补） */
+  if(tab === 'me'){
+    setTimeout(function(){
+      try{
+        if(typeof refreshBusuanzi === 'function') refreshBusuanzi();
+        else if(window.__refreshBusuanzi) window.__refreshBusuanzi();
+      }catch(e){}
+    }, 120);
+  }
+};
+
+/* ---------- render 权威版（cultivation → 健体修仙录，其余 → 原渲染） ---------- */
+render = function(){
+  if(currentTab === 'cultivation'){
+    var view = $('#view');
+    if(window.XianCore){
+      view.innerHTML = '';
+      var host = document.createElement('div');
+      host.className = 'xc-root';
+      view.appendChild(host);
+      XianCore.init();
+      XianCore.renderTo(host);
+      /* 首次进入自动结算历史遗留（静默） */
+      if(!XianCore._settledOnce){ XianCore.autoSettle(true); XianCore._settledOnce = true; }
+    } else {
+      view.innerHTML = '<div class="empty" style="padding:60px 20px;text-align:center;color:#8fa3bf;">修仙模块加载中…<br><br><button class="btn block primary" onclick="location.reload()" style="padding:10px 24px;">刷新加载</button></div>';
+    }
+    return;
+  }
+  if(currentTab === 'train'){ $('#view').innerHTML = renderHome(); }
+  else if(currentTab === 'library'){ $('#view').innerHTML = renderLibrary(); }
+  else if(currentTab === 'stats'){ $('#view').innerHTML = renderStats(); }
+  else if(currentTab === 'me'){ $('#view').innerHTML = renderMe(); }
+  else { $('#view').innerHTML = renderHome(); }
+};
+
+/* ---------- 全局修仙主题增强版（完整覆盖所有硬编码色） ---------- */
+(function(){
+  if(document.getElementById('xian-theme-v8')) return;
+  var st = document.createElement('style');
+  st.id = 'xian-theme-v8';
+  st.textContent = `
+  :root, html[data-theme="dark"]{
+    --bg:#0b1120; --card:#131c31; --card2:#1a2540;
+    --text:#e2e8f0; --muted:#8fa3bf; --accent:#fbbf24; --accent-d:#f59e0b;
+    --accent-light:#1a2540; --line:#26314d; --orange:#f59e0b; --pink:#ec4899;
+    --warn:#f59e0b; --warn-light:#3b2f0e; --ok:#22c55e;
+    --shadow:0 2px 12px rgba(0,0,0,.35);
+  }
+  html{background:#0b1120;}
+  body{background:#0b1120 !important;color:#e2e8f0 !important;}
+  #app{background:#0b1120 !important;}
+  /* 顶栏 */
+  #topbar{background:#0d1526 !important;}
+  #topbar-title{color:#fbbf24 !important;}
+  /* 首页品牌 */
+  .brand{color:#fbbf24 !important;text-shadow:0 0 14px rgba(251,191,36,.35);}
+  .date-str{color:#8fa3bf !important;}
+  /* 卡片 */
+  .folder-card,.lib-card,.plan-row,.ex-card,.workout-list .ex-card,
+  .libv2-row,.stat-item,.stat-card,.mini-active,.create-field,.create-sel,
+  .create-type,.set-row,.libv2-side,.sheet,.theme-row,.day-w-item,.day-add-row{background:#131c31 !important;border-color:#26314d !important;}
+  .folder-grid,.folder-cell{background:#1a2540;}
+  /* 按钮 */
+  .plus-btn{background:linear-gradient(90deg,#f59e0b,#fbbf24) !important;color:#0b1120 !important;}
+  .btn-custom{background:#1a2540 !important;color:#fbbf24 !important;border:1px solid #fbbf2433 !important;}
+  .new-plan-card{border-color:#fbbf2455 !important;background:#1a2540 !important;color:#fbbf24 !important;}
+  /* tabbar */
+  #tabbar{background:#0d1526 !important;border-top-color:#26314d !important;}
+  .tab.active .lb{color:#fbbf24 !important;}
+  .tab.active .ic{color:#fbbf24 !important;}
+  /* 文本 */
+  h1,h2,h3,h4{color:#e2e8f0 !important;}
+  .folder-name,.plan-row-name,.plan-name,.ex-name,.libv2-name{color:#e2e8f0 !important;}
+  .folder-count{color:#fbbf24 !important;background:#1a2540 !important;}
+  .notify-badge{background:#131c31 !important;border-color:#26314d !important;color:#8fa3bf !important;}
+  /* 训练页 */
+  .workout-view{background:#0b1120 !important;}
+  .finish-pill{background:linear-gradient(90deg,#f59e0b,#ef4444) !important;color:#fff !important;}
+  .add-set-btn{background:linear-gradient(90deg,#2563eb,#7c3aed) !important;}
+  .set-val{background:#1a2540 !important;color:#93c5fd !important;}
+  .set-val.empty{background:#1a2540 !important;color:#64748b !important;}
+  .set-done-btn{background:#131c31 !important;border-color:#26314d !important;color:#8fa3bf !important;}
+  .set-done-btn.completed{background:#fbbf24 !important;border-color:#fbbf24 !important;color:#0b1120 !important;}
+  .rpe-btn{background:#131c31 !important;border-color:#26314d !important;color:#8fa3bf !important;}
+  /* 动作库 */
+  .libv2-search{background:#1a2540 !important;}
+  .libv2-search input{color:#e2e8f0 !important;}
+  .libv2-chip{background:#1a2540 !important;color:#b6c6dc !important;}
+  .libv2-chip.active{background:#fbbf24 !important;color:#0b1120 !important;}
+  .libv2-cat.active{background:#131c31 !important;color:#fbbf24 !important;}
+  /* 统计 */
+  .stat-header .tab-text.active{color:#fbbf24 !important;border-bottom-color:#fbbf24 !important;}
+  .month-title{color:#fbbf24 !important;}
+  .cal-day{background:#131c31 !important;color:#e2e8f0 !important;}
+  .cal-day.today{background:#fbbf2422 !important;border-color:#fbbf24 !important;}
+  /* sheet / 弹窗 */
+  #overlay{background:rgba(5,8,18,.75) !important;}
+  .sheet{background:#131c31 !important;}
+  .sheet h3{color:#fbbf24 !important;}
+  .ex-menu-item{background:#1a2540 !important;border-color:#26314d !important;}
+  .ex-menu-item .n{color:#e2e8f0 !important;}
+  .ex-menu-item .s{color:#8fa3bf !important;}
+  .sort-row{border-color:#26314d !important;}
+  .sort-row .sr-btn{background:#131c31 !important;border-color:#26314d !important;color:#fbbf24 !important;}
+  .sel-item{border-color:#26314d !important;color:#e2e8f0 !important;}
+  .rest-chip{background:#131c31 !important;border-color:#26314d !important;color:#e2e8f0 !important;}
+  .rest-chip.active{background:#fbbf24 !important;color:#0b1120 !important;border-color:#fbbf24 !important;}
+  /* 输入 */
+  input,select,textarea{background:#1a2540 !important;border-color:#26314d !important;color:#e2e8f0 !important;}
+  input::placeholder{color:#64748b !important;}
+  .field label{color:#8fa3bf !important;}
+  /* 我的页 */
+  .profile-card,.menu-item,.plan-row{background:#131c31 !important;}
+  /* 空状态 */
+  .empty{color:#8fa3bf !important;}
+  /* 分页/按钮通用 */
+  .btn{background:#1a2540 !important;color:#e2e8f0 !important;border:1px solid #26314d !important;}
+  .btn.primary{background:linear-gradient(90deg,#2563eb,#7c3aed) !important;color:#fff !important;border:0 !important;}
+  /* 滚轮 */
+  .wheel-wrap{background:#1a2540 !important;}
+  .wheel-opt{color:#64748b !important;}
+  .wheel-opt.cur{color:#fbbf24 !important;font-weight:800;}
+  .wheel-band{background:#26314d !important;}
+  `;
+  document.head.appendChild(st);
+})();
+
+/* 兜底：任何可能被前面包装污染的 setTab 调用，都强制回到权威版 */
+(function(){
+  try{
+    /* busuanzi 包装的 setTab 会再包一层，这里确保最终 setTab 是权威版 */
+    var _origSetTab = setTab;
+    /* 已经重定义过了，无需再包 */
+  }catch(e){}
 })();
