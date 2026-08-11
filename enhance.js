@@ -2806,3 +2806,48 @@ render = function(){
     /* 已经重定义过了，无需再包 */
   }catch(e){}
 })();
+
+/* ============================================================
+   v8.3 末尾：URL hash → setTab + 启动跳转 + 统计兜底
+   ============================================================ */
+(function(){
+  /* hash 路由：xian.html#cultivation 直接跳到修仙 tab */
+  function applyHash(){
+    try{
+      var h = (location.hash || '').replace('#','').toLowerCase();
+      var map = {train:'train', library:'library', stats:'stats', me:'me', cultivation:'cultivation', xian:'cultivation', fitrecord:'train'};
+      var tab = map[h] || (h||null);
+      if(tab && typeof setTab === 'function' && tab !== currentTab){
+        setTab(tab);
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+  /* 页面加载后立即按 hash 跳转 */
+  if(document.readyState === 'complete' || document.readyState === 'interactive'){
+    setTimeout(applyHash, 30);
+  } else {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(applyHash, 30); });
+  }
+  /* hash 变化时同步 */
+  window.addEventListener('hashchange', applyHash);
+  /* 5 tab 链接点击：更新 hash + 阻止默认跳转（除非目标 hash 不对应 SPA tab） */
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a.tab-link');
+    if(!a) return;
+    var href = a.getAttribute('href') || '';
+    if(href.indexOf('xian.html') !== -1 && href.indexOf('#') === -1){
+      /* xian.html 链接不需要拦截（独立入口已删，链接应该改为 index.html） */
+      e.preventDefault();
+      location.href = 'index.html#cultivation';
+    }
+  }, true);
+  /* 底部 tab 点击 → 更新 hash，便于分享/刷新 */
+  document.addEventListener('click', function(e){
+    var tab = e.target.closest('#tabbar .tab');
+    if(!tab) return;
+    var t = tab.dataset.tab;
+    if(t){ try{ history.replaceState(null, '', '#'+t); }catch(err){} }
+  });
+})();
