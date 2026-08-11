@@ -229,4 +229,58 @@
 .ex-progress-bar{flex:1;height:4px;background:#f3f4f6;border-radius:2px;overflow:hidden;}
 .ex-progress-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .25s ease;}
 .ex-progress-text{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+/* ============================================================
+   v5.1：bug 修复样式 + 体验优化
+   ============================================================ */
+
+/* 休息倒计时：改为底部固定小卡，不遮挡训练内容 */
+.rest-layer{position:fixed;left:0;right:0;bottom:0;top:auto;background:rgba(15,23,42,.97);
+  backdrop-filter:blur(8px);border-radius:22px 22px 0 0;z-index:70;
+  padding:16px 20px calc(16px + var(--safe-b));box-shadow:0 -8px 30px rgba(0,0,0,.35);
+  max-width:430px;margin:0 auto;}
+.rest-inner{text-align:center;color:#fff;width:100%;padding:0;max-width:100%;box-sizing:border-box;}
+.rest-label{font-size:14px;opacity:.75;margin-bottom:4px;}
+.rest-time{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:1px;line-height:1.1;}
+.rest-ex{opacity:.8;margin:6px 0 12px;font-size:13px;}
+.rest-actions{display:flex;gap:10px;justify-content:center;margin-bottom:10px;}
+.rest-btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;
+  border-radius:24px;padding:9px 18px;font-size:14px;font-weight:600;}
+.rest-btn.primary{background:#fff;color:var(--accent);border-color:#fff;}
+.rest-range-label{font-size:11px;opacity:.6;}
+#rest-range{width:100%;margin-top:6px;accent-color:#fff;}
+
+/* 训练页 hero：小屏自适应高度 */
+.workout-hero{min-height:180px;height:auto;padding-bottom:18px;}
+
+/* 动作卡折叠时显示完成徽章 */
+.ex-card.collapsed .ex-head .ex-name::after{
+  content:attr(data-done-badge);
+  display:inline-block;margin-left:8px;padding:2px 8px;border-radius:10px;
+  background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:700;
+}
+
+/* 训练中删除按钮（hero 右侧垃圾桶） */
+.wo-del-btn{width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,.85);border:0;color:#fff;
+  display:flex;align-items:center;justify-content:center;}
+
+/* 完成训练摘要卡 */
+.fin-summary{background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border-radius:18px;
+  padding:18px 16px;margin-bottom:14px;}
+.fin-summary .fs-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;
+  border-bottom:1px solid rgba(255,255,255,.08);font-size:14px;}
+.fin-summary .fs-row:last-child{border-bottom:0;}
+.fin-summary .fs-val{font-weight:800;font-size:16px;color:#fbbf24;font-variant-numeric:tabular-nums;}
+.fin-summary .fs-big{font-size:22px;}
+
+/* 空结果引导 */
+.empty-guide{text-align:center;padding:34px 20px;color:var(--muted);}
+.empty-guide .eg-btn{margin-top:14px;display:inline-block;padding:10px 22px;border-radius:12px;
+  background:var(--accent);color:#fff;font-weight:600;font-size:14px;border:0;}
+
+/* 计划卡上次训练日期 */
+.plan-row-meta .last-w{color:var(--accent);font-weight:600;}
+
+/* 无数据引导（统计/历史） */
+.stat-empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:14px;line-height:1.8;}
 .create-upload .cam svg{display:block;}
