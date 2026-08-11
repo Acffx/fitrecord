@@ -454,18 +454,21 @@ function renderMain(container){
         '<span class="root-badge" style="background:'+root.color+'22;color:'+root.color+';">'+root.name+'</span>'+
         '<span class="root-ffmi">'+ffmiTxt+'</span>'+dbg+
       '</div>'+
+      /* === 肉身档案提到道途上边（用户要求 v8.2） === */
+      '<div class="sec-title">🧬 肉身档案 <span class="sub">点击编辑测算灵根</span></div>'+
+      '<div class="body-card"><div class="body-grid">'+bodyCells+'</div>'+
+        '<button class="body-edit" data-act="editBody">✏️ 修改身体数据</button></div>'+
+      /* === 道途卡 === */
       '<div class="sec-title">⚔️ 修炼道途 <span class="sub">点击切换</span></div>'+
       '<div class="dao-grid">'+daoGridHTML()+'</div>'+
-      '<div class="sec-title">📜 功法总览 <span class="sub">点击进入系内功法</span></div>'+
+      /* === 功法修为：3 张模块化总览卡（点击进入系内详情） === */
+      '<div class="sec-title">📜 功法修为 <span class="sub">点击进入系内功法（35 套）</span></div>'+
       '<div class="dao-modules">'+
         daoSummaryCard('tian', 12)+daoSummaryCard('xuan', 12)+daoSummaryCard('houtu', 11)+
       '</div>'+
-      '<div class="sec-title">🧬 肉身档案 <span class="sub">完善数据测算灵根</span></div>'+
-      '<div class="body-card"><div class="body-grid">'+bodyCells+'</div>'+
-        '<button class="body-edit" data-act="editBody">✏️ 修改身体数据</button></div>'+
       '<div class="sec-title">📖 系统说明</div>'+
       '<div class="help-card">'+CONFIG.HELP.replace(/\n/g,'<br>')+'</div>'+
-      '<div style="height:80px;"></div>'+
+      '<div style="height:100px;"></div>'+
     '</div>';
 }
 function daoGridHTML(){
