@@ -2533,6 +2533,102 @@ document.addEventListener('input', e=>{
 /* ---------- 修真者动画优化（减少魂魄粒子流动画距离） ---------- */
 const xianStageStyle = document.createElement('style');
 xianStageStyle.textContent = `
-@keyframesxian-soul{0%{transform:translateY(0);opacity:.4}100%{transform:translateY(-90px);opacity:0}}
+@keyframes xian-soul{0%{transform:translateY(0);opacity:.4}100%{transform:translateY(-90px);opacity:0}}
 `;
 try{ document.head && document.head.appendChild(xianStageStyle); }catch(e){}
+
+/* ============================================================
+   v8：健体修仙录 SPA 集成（嵌入修仙 tab + 自动结算 + 全局修仙主题）
+   ============================================================ */
+
+/* ---------- 修仙 tab 渲染健体修仙录（替换旧 renderCultivation） ---------- */
+(function(){
+  const baseRender = render;
+  render = function(){
+    if(currentTab === 'cultivation'){
+      const view = $('#view');
+      if(window.XianCore){
+        view.innerHTML = '<div class="xc-root"></div>';
+        const host = view.querySelector('.xc-root');
+        XianCore.init();
+        XianCore.renderTo(host);
+        /* 首次进入自动结算历史遗留（静默） */
+        XianCore.autoSettle(true);
+      } else {
+        view.innerHTML = '<div class="empty" style="padding:60px 20px;text-align:center;color:var(--muted);">修仙模块加载中…</div>';
+      }
+      return;
+    }
+    return baseRender();
+  };
+})();
+
+/* ---------- 训练完成自动结算修为 ---------- */
+(function(){
+  const base = finishWorkout;
+  finishWorkout = function(){
+    const ret = base();
+    /* base 已把训练存进 state.workouts；延迟触发自动结算（让完成动画先播） */
+    setTimeout(function(){
+      if(window.XianCore){
+        XianCore.init();
+        const r = XianCore.autoSettle(false);
+        if(r && r.settled > 0 && r.broken){
+          /* 突破提示已由 core 内处理 */
+        }
+      }
+    }, 900);
+    return ret;
+  };
+})();
+
+/* ---------- 全局修仙暗色主题（与健体修仙录统一风格） ---------- */
+(function(){
+  const st = document.createElement('style');
+  st.id = 'xian-theme';
+  st.textContent = `
+  /* 主题基调：暗色修仙 */
+  :root{
+    --bg:#0b1120; --card:#131c31; --card2:#1a2540;
+    --text:#e2e8f0; --muted:#8fa3bf; --accent:#fbbf24; --accent-d:#f59e0b;
+    --accent-light:#1a2540; --line:#26314d;
+    --shadow:0 2px 12px rgba(0,0,0,.35);
+  }
+  body{background:#0b1120;}
+  #app{background:#0b1120;}
+  /* 顶栏修仙风 */
+  #topbar{background:linear-gradient(180deg,#0b1120 60%,rgba(11,17,32,.9));}
+  #topbar-title{color:#fbbf24;letter-spacing:1px;}
+  /* 首页品牌 */
+  .brand{color:#fbbf24;text-shadow:0 0 12px rgba(251,191,36,.35);}
+  .date-str{color:#8fa3bf;}
+  /* 卡片统一 */
+  .folder-card,.lib-card,.plan-row,.ex-card,.libv2-row,.stat-card,
+  .mini-active,.create-field,.create-sel,.create-type,.set-row{background:var(--card);}
+  /* 按钮 */
+  .plus-btn{background:linear-gradient(90deg,#f59e0b,#fbbf24);color:#0b1120;box-shadow:0 4px 14px rgba(251,191,36,.3);}
+  .btn-custom{background:#1a2540;color:#fbbf24;border:1px solid #fbbf2433;}
+  .new-plan-card{border-color:#fbbf2455;background:#1a2540;color:#fbbf24;}
+  /* tabbar */
+  #tabbar{background:#0d1526;border-top-color:#26314d;}
+  .tab.active .lb{color:#fbbf24;}
+  /* 训练页 */
+  .workout-view{background:#0b1120;}
+  .finish-pill{background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;}
+  .add-set-btn{background:linear-gradient(90deg,#2563eb,#7c3aed);}
+  .add-set-btn:hover{opacity:.9;}
+  /* sheet */
+  #overlay{background:rgba(5,8,18,.72);}
+  .sheet{background:var(--card);}
+  .sheet h3{color:#fbbf24;}
+  /* 输入框 */
+  input,select,textarea{background:var(--card2);border-color:var(--line);color:var(--text);}
+  /* 统计/我的 */
+  .stat-header .tab-text.active{color:#fbbf24;border-bottom-color:#fbbf24;}
+  .month-title{color:#fbbf24;}
+  /* 通用文本 */
+  h2{color:var(--text);}
+  .empty{color:#8fa3bf;}
+  `;
+  document.head.appendChild(st);
+})();
