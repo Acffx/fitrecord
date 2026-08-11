@@ -1,0 +1,739 @@
+/* ============================================================
+   FitRecord · 健体修仙录 核心模块（独立页 xian.html 与 SPA 共用）
+   严格遵循《健体修仙小游戏·全套完整系统》文档，数值/文案/公式一字不改
+   © 2026 Acffx · 原创 · 保留所有权利
+   对外暴露 window.XianCore：init / renderTo / syncAll / autoSettle / getRoot
+   ============================================================ */
+(function(global){
+'use strict';
+
+/* ============================================================
+   config：全部常量（数值、文案、色值、门槛——不可修改）
+   ============================================================ */
+var CONFIG = {
+  BASE_HEIGHT: 184,
+  DAOS: {
+    tian:   { name:'天罡推道',  color:'#7cf0a9', check:'push',   unlock:'天罡推道：掌印之道开启，侧重打磨上肢推力，适合偏爱胸肩训练的你。' },
+    xuan:   { name:'玄元拉道',  color:'#63b8ff', check:'pull',   unlock:'玄元拉道：擒龙之道开启，侧重打磨背部拉力，打造宽厚身形。' },
+    houtu:  { name:'后土腿道',  color:'#e6b450', check:'leg',    unlock:'后土腿道：镇岳之道开启，侧重下肢根基，下肢力量稳步增长。' },
+    hunyuan:{ name:'混元均衡道',color:'#ffd700', check:'all',    unlock:'混元均衡道：混元道开启，三系同修额外提升修炼收益，均衡发展更强！' }
+  },
+  ROOTS: [
+    {name:'凡灵根',  max:17.5, mult:1.00, fx:'周身灰白微光',       up:'微弱白光闪烁；资质普通也没关系，坚持训练灵根会稳步提升'},
+    {name:'下品灵根',max:19.0, mult:1.08, fx:'淡青色全身光晕',     up:'青芒粒子环绕；灵根初步觉醒，日常训练收益小幅提升'},
+    {name:'中品灵根',max:20.5, mult:1.18, fx:'翠绿色经脉流光',     up:'绿光喷涌；肉身经脉充盈，训练效率明显提高'},
+    {name:'上品灵根',max:22.0, mult:1.30, fx:'蓝色旋转灵气环',     up:'蓝光结界炸开；天生优质肉身底子，增肌塑形事半功倍'},
+    {name:'极品灵根',max:23.5, mult:1.45, fx:'金蓝交织霞光',       up:'金蓝花瓣粒子盘旋；万中无一的肉身天赋，稍加训练即可快速蜕变'},
+    {name:'先天道体',max:99,   mult:1.60, fx:'永久紫金护体粒子',   up:'全屏紫金霞光+天地道纹；肉身抵达凡人巅峰，修炼效率拉满！'}
+  ],
+  ROOT_COLOR: { '凡灵根':'#9ca3af','下品灵根':'#5eead4','中品灵根':'#4ade80','上品灵根':'#60a5fa','极品灵根':'#fbbf24','先天道体':'#a78bfa' },
+  DEBUFF_WEAK:  {ffmi:15, mult:0.85, msg:'目前肌肉储备较少，循序渐进抗阻训练即可慢慢固本，无需急于增重'},
+  DEBUFF_FAT:   {bodyFat:28, msg:'体脂偏高暂时小幅削弱灵根收益，优先增肌，减脂缓慢进行即可，不用焦虑'},
+  REALMS: [
+    {name:'凡俗境', str:{push:36,pull:52,leg:46}, body:{weight:47,chest:61,arm:19,waist:86,thigh:35}, anim:'白光淡闪', sub:'炼气启脉，肉身初修', foot:'踏出训练第一步，未来可期'},
+    {name:'炼气境', str:{push:52,pull:81,leg:72}, body:{weight:51,chest:66,arm:22,waist:83,thigh:39}, anim:'淡青经脉流光', sub:'筑基凝肉，筋骨初成', foot:'规律训练初见成效'},
+    {name:'筑基境', str:{push:68,pull:111,leg:98}, body:{weight:55,chest:72,arm:24,waist:80,thigh:43}, anim:'地面青色灵阵', sub:'金丹铸躯，肉身蕴力', foot:'坚持训练一年左右即可达成'},
+    {name:'金丹境', str:{push:85,pull:140,leg:124}, body:{weight:59,chest:75,arm:27,waist:77,thigh:46}, anim:'胸腹金色丹光', sub:'元婴塑体，形体天成', foot:'系统训练的完美回报'},
+    {name:'元婴境', str:{push:98,pull:163,leg:146}, body:{weight:62,chest:79,arm:29,waist:74,thigh:49}, anim:'蓝色护体结界', sub:'化神炼骨，脱凡入圣', foot:'长期自律训练的馈赠'},
+    {name:'化神境', str:{push:111,pull:185,leg:169}, body:{weight:65,chest:82,arm:31,waist:72,thigh:51}, anim:'全身金光贯顶', sub:'炼虚融身，力纳天地', foot:'资深爱好者专属里程碑'},
+    {name:'炼虚境', str:{push:124,pull:208,leg:192}, body:{weight:68,chest:85,arm:32,waist:70,thigh:54}, anim:'深蓝漫天粒子', sub:'合体归一，肉身无敌', foot:'力量与形体均衡大成'},
+    {name:'合体境', str:{push:137,pull:231,leg:215}, body:{weight:72,chest:87,arm:34,waist:68,thigh:57}, anim:'金蓝全屏柔光', sub:'大乘极境，赛场称尊！', foot:'业余健身顶尖水准'},
+    {name:'大乘境', str:{push:150,pull:254,leg:237}, body:{weight:75,chest:90,arm:35,waist:66,thigh:59}, anim:'金色道纹全覆盖', sub:'大乘极境，挑战自我极限！', foot:''},
+    {name:'渡劫境', str:{push:166,pull:280,leg:260}, body:{weight:78,chest:92,arm:37,waist:64,thigh:62}, anim:'紫金雷电全屏震动', sub:'⚡渡劫封神，肉身超脱凡俗！', foot:'长期坚持的终极远景'}
+  ],
+  SKILL_LV: [
+    {lv:1, name:'初窥门径', bonus:0.00, need:0,     anim:'图标微光点亮', msg:'《{skillName}》初窥门径，正式开启这条修炼之路，慢慢来就好。'},
+    {lv:2, name:'略有小成', bonus:0.01, need:1000,  anim:'图标淡光粒子', msg:'《{skillName}》略有小成，发力技巧慢慢熟练，换算效率小幅提升。'},
+    {lv:3, name:'登堂入室', bonus:0.02, need:2500,  anim:'道途色系环绕光', msg:'《{skillName}》登堂入室，肌肉记忆逐步成型，驾驭力量更轻松。'},
+    {lv:4, name:'融会贯通', bonus:0.03, need:4500,  anim:'光圈旋转扩散', msg:'《{skillName}》融会贯通，常规训练已经很难限制你的进步空间。'},
+    {lv:5, name:'炉火纯青', bonus:0.04, need:7000,  anim:'图标镀金结界', msg:'《{skillName}》炉火纯青，动作标准稳定，长期坚持收益更高。'},
+    {lv:6, name:'技近乎道', bonus:0.05, need:10000, anim:'全屏微光纹路', msg:'《{skillName}》技近乎道，熟练掌握发力精髓，突破会越来越轻松。'},
+    {lv:7, name:'肉身印记', bonus:0.06, need:14000, anim:'肌群动态流光', msg:'《{skillName}》肉身印记，力量传导更加顺畅，同等负重收获更多修为。'},
+    {lv:8, name:'道印凝形', bonus:0.07, need:19000, anim:'悬浮旋转道印', msg:'《{skillName}》道印凝形，距离功法圆满只差最后一段积累。'},
+    {lv:9, name:'圆满通玄', bonus:0.08, need:25000, anim:'霞光永久锁定', msg:'✨《{skillName}》【圆满通玄】！这门功法你已修炼至极致，可多尝试其他动作拓宽路子。'}
+  ],
+  SKILLS: [
+    {id:'t_juli',  dao:'tian', name:'巨力印',   app:'杠铃平板卧推', coeff:1.00, icon:'🖐️', desc:'推道基础至尊功法，淬炼胸肌本源巨力，刚猛霸道', fx:'胸口白光巨印，发力冲击波扩散'},
+    {id:'t_xuanyan',dao:'tian', name:'玄岩掌',  app:'哑铃平板卧推', coeff:0.80, icon:'✋', desc:'哑铃打磨胸肌细节，夯实肉身根基', fx:'淡岩色手掌粒子飘散'},
+    {id:'t_lingyun',dao:'tian', name:'凌云推山',app:'杠铃上斜卧推', coeff:0.92, icon:'⛰️', desc:'专攻上胸，塑造挺拔胸型', fx:'金色向上流光升腾'},
+    {id:'t_qingyun',dao:'tian', name:'青云掌',  app:'哑铃上斜卧推', coeff:0.76, icon:'☁️', desc:'轻柔雕琢上胸肌理', fx:'青云云朵环绕双臂'},
+    {id:'t_qingtian',dao:'tian',name:'擎天法',  app:'站姿杠铃推举', coeff:0.85, icon:'🌄', desc:'撑开肩颈骨架气度', fx:'头顶天光，双肩光盾'},
+    {id:'t_zhengyue',dao:'tian',name:'镇岳擎天',app:'阿诺德推举',   coeff:0.72, icon:'🏔️', desc:'完善上肢轮廓，塑形增肌', fx:'山岳虚影覆双臂'},
+    {id:'t_xuanjiao',dao:'tian',name:'玄蛟腾跃',app:'双杠臂屈伸',   coeff:0.65, icon:'🐉', desc:'活化下胸三头经脉', fx:'蓝色蛟纹周身流转'},
+    {id:'t_chansi', dao:'tian', name:'缠丝劲',  app:'绳索夹胸',     coeff:0.45, icon:'🕸️', desc:'雕琢胸肌中缝', fx:'银丝汇聚胸腔中心'},
+    {id:'t_yunyi',  dao:'tian', name:'云翼展',  app:'哑铃飞鸟',     coeff:0.40, icon:'🪽', desc:'拓宽胸腔筋膜', fx:'双翼柔光开合'},
+    {id:'t_leimang',dao:'tian', name:'雷蟒鞭',  app:'绳索三头下压', coeff:0.35, icon:'⚡', desc:'收紧上肢线条', fx:'细碎电光手臂流动'},
+    {id:'t_fentian',dao:'tian', name:'焚天肘',  app:'哑铃颈后臂屈伸',coeff:0.33,icon:'🔥', desc:'深挖三头维度', fx:'橙火手肘环绕'},
+    {id:'t_fumo',   dao:'tian', name:'伏魔推',  app:'坐姿器械推胸', coeff:0.70, icon:'🛡️', desc:'稳定基础胸力', fx:'固形光墙平稳推送'},
+    {id:'l_qinlong',dao:'xuan', name:'擒龙诀',  app:'传统硬拉',     coeff:1.00, icon:'🐲', desc:'拉道根基，淬炼腰背巨力', fx:'地面金龙冲天光柱'},
+    {id:'l_xuanmang',dao:'xuan',name:'玄蟒探渊',app:'罗马尼亚硬拉', coeff:0.78, icon:'🐍', desc:'拉伸臀腿后侧筋膜', fx:'黑紫蟒纹沿后背流动'},
+    {id:'l_heishui',dao:'xuan', name:'黑水缚兽',app:'杠铃划船',     coeff:0.82, icon:'🌊', desc:'打造宽厚背肌', fx:'黑水波纹扩散后背'},
+    {id:'l_gujiao', dao:'xuan', name:'孤蛟汲浪',app:'绳索单臂划船', coeff:0.74, icon:'🐉', desc:'修正背部左右不对称', fx:'单侧蓝光蛟影拉扯'},
+    {id:'l_cangying',dao:'xuan',name:'苍鹰攀崖',app:'引体向上',     coeff:0.70, icon:'🦅', desc:'极致拓宽背阔', fx:'鹰翼白光向上炸开'},
+    {id:'l_xinghe', dao:'xuan', name:'星河垂索',app:'高位下拉',     coeff:0.66, icon:'✨', desc:'拓宽背阔维度', fx:'星光从天落向背部'},
+    {id:'l_canglan',dao:'xuan', name:'沧澜回涌',app:'坐姿划船',     coeff:0.63, icon:'🌊', desc:'紧致背部线条', fx:'蓝色浪潮往返冲刷'},
+    {id:'l_jinjiao',dao:'xuan', name:'金蛟卷腕',app:'杠铃弯举',     coeff:0.34, icon:'💪', desc:'打造二头爆发力', fx:'金色纹路缠绕手臂'},
+    {id:'l_lingshe',dao:'xuan', name:'灵蛇卷臂',app:'哑铃弯举',     coeff:0.32, icon:'🐍', desc:'均衡双臂肌肉', fx:'银蛇光影交替游走'},
+    {id:'l_xuangui',dao:'xuan', name:'玄龟负山',app:'坐式低拉背',   coeff:0.60, icon:'🐢', desc:'稳定背部基础力量', fx:'土黄色厚重光甲'},
+    {id:'l_zhuoyun',dao:'xuan', name:'追云手',  app:'直臂下压',     coeff:0.38, icon:'☁️', desc:'细化背阔下沿', fx:'流云垂直下坠'},
+    {id:'l_qiansi', dao:'xuan', name:'千丝缚',  app:'绳索面拉',     coeff:0.30, icon:'🪢', desc:'改善圆肩体态', fx:'千缕银丝拉扯肩后'},
+    {id:'h_zhendi', dao:'houtu', name:'镇地法',  app:'杠铃深蹲',     coeff:1.00, icon:'⛰️', desc:'下肢本源根基功法', fx:'地面大地灵阵震动'},
+    {id:'h_xuanxiang',dao:'houtu',name:'玄象踏山',app:'哑铃箭步蹲',  coeff:0.75, icon:'🐘', desc:'夯实下肢基础', fx:'土黄光韵踏步震纹'},
+    {id:'h_liedi',  dao:'houtu', name:'裂地步',  app:'保加利亚分腿蹲',coeff:0.68, icon:'💥', desc:'平衡单侧下肢力量', fx:'落脚地裂微光'},
+    {id:'h_wanjun', dao:'houtu', name:'万钧承躯',app:'腿举',         coeff:0.83, icon:'🏋️', desc:'快速提升腿围', fx:'双腿承压蓝光护盾'},
+    {id:'h_yanshan',dao:'houtu', name:'岩山固守',app:'哈克深蹲',     coeff:0.80, icon:'🪨', desc:'精准刺激股四头肌', fx:'岩石纹路覆盖双腿'},
+    {id:'h_chihu',  dao:'houtu', name:'赤虎伸足',app:'坐姿腿屈伸',   coeff:0.42, icon:'🐯', desc:'细化大腿前侧', fx:'赤虎红光舒展双腿'},
+    {id:'h_xuanbao',dao:'houtu', name:'玄豹收足',app:'俯卧腿弯举',   coeff:0.40, icon:'🐆', desc:'均衡腘绳肌', fx:'墨色豹纹收拢后侧'},
+    {id:'h_hanyue', dao:'houtu', name:'撼岳拱',  app:'杠铃臀推',     coeff:0.62, icon:'🏔️', desc:'强化臀腿合力', fx:'腰臀金色山岳虚影'},
+    {id:'h_benlei', dao:'houtu', name:'奔雷踏',  app:'哑铃箭步蹲',   coeff:0.66, icon:'⚡', desc:'突破单腿力量瓶颈', fx:'踏步雷光闪烁'},
+    {id:'h_juxiang',dao:'houtu', name:'巨象提踵',app:'站姿提踵',     coeff:0.25, icon:'🐘', desc:'完善小腿维度', fx:'脚踝星光弹跳'},
+    {id:'h_panshi', dao:'houtu', name:'磐石蹲',  app:'深蹲机',       coeff:0.90, icon:'🪨', desc:'安全稳定下肢训练', fx:'磐石光壁包裹全身'}
+  ],
+  MAIN_MAX: 3, MAIN_BONUS: 0.20,
+  MAIN_MSG_ON: '{skillName}设为主修，后续训练修为收益提升20%。',
+  MAIN_MSG_OFF: '已取消《{skillName}》主修身份，可更换其他动作专精。',
+  MAIN_MSG_LIMIT: '最多同时选择3门主修功法，请先取消一门再添加。',
+  TOAST: {
+    syncDone: '全部未结算训练已同步，修为更新完毕，继续加油！',
+    noNew: '暂无新增训练记录，抽空多练几组积攒底蕴吧。',
+    noBody: '请完善身高、体重、各项围度数据，即可测算你的肉身灵根资质。',
+    badVal: '输入数值不合法，重量、围度不可为负数，请重新填写。',
+    offline: '当前离线，训练记录临时缓存，联网后自动同步修为。',
+    loading: '正在同步训练数据，请稍候，无需重复点击。',
+    normal: '功法修为汇入肉身，坚持训练日积月累，本次获取修为：{expAmount}',
+    main: '主修功法加持，修炼收益提升20%，本次获取修为：{expAmount}',
+    dunwu: '⚡灵光顿悟！对《{skillName}》感悟加深，本次修为翻倍！本次获取修为：{expAmount}'
+  },
+  BOTTLENECK: '【境界桎梏】\n当前{realmName}九层圆满，积攒了充足修炼底蕴。力量与形体提升本就是循序渐进的过程，不用急于求成，慢慢突破负重、打磨身形，积蓄足够底蕴就能顺利突破下一重境界。',
+  BOTTLENECK_DAYS: 7,
+  HELP: '🏯 健体修仙录 · 修炼说明\n\n『双体系』肉身境界与功法等级互不互通：肉身境界靠「力量+形体」双条件突破；功法等级独立积累经验，提升换算加成。\n\n『灵根』由 FFMI 判定，影响修炼倍率；完善身高体重与五围数据即可测算。\n\n『道途』决定突破校验侧重：天罡推道查推力、玄元拉道查拉力、后土腿道查腿力，混元均衡道需三系全达标（元婴境解锁）。\n\n『主修』最多3门，主修功法修炼收益+20%。\n\n『同步』训练完成自动结算修为；断网训练本地缓存，联网后自动同步即可。\n\n所有数值规则完全透明，无抽卡、无隐藏机制。'
+};
+
+/* ============================================================
+   存储联动模块（复用 fitrecord_v3，零新建独立存储）
+   ============================================================ */
+var DB_KEY = 'fitrecord_v3';
+var state = null;
+var xian = null;
+var animRunning = false;
+var fxEnabled = true;
+
+function loadState(){
+  try{
+    var raw = localStorage.getItem(DB_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(state)); }catch(e){} }
+function ensureXian(){
+  if(!state) return;
+  if(!state.xianJian){
+    state.xianJian = { realm:0, layer:1, dao:'tian', main:[], skills:{}, body:{arm:'',thigh:''}, lastBreakAt:0, bottleneckDays:0 };
+  }
+  xian = state.xianJian;
+  CONFIG.SKILLS.forEach(function(s){
+    if(!xian.skills[s.id]) xian.skills[s.id] = {exp:0, lv:1};
+  });
+}
+function num(v, def){
+  var n = +v;
+  if(v === null || v === undefined || v === '' || !isFinite(n) || n < 0) return def;
+  return n;
+}
+
+/* ============================================================
+   FFMI 灵根计算模块
+   ============================================================ */
+function getProfile(){ return state.profile || {}; }
+function getBodyLatest(){
+  var log = state.bodyLog || [];
+  return log.length ? log[log.length-1] : null;
+}
+function computeFFMI(){
+  var p = getProfile();
+  var b = getBodyLatest() || {};
+  var h = num(p.height, 0);
+  var w = num(b.weight, 0) || num(p.weight, 0);
+  var waist = num(b.waist, 0);
+  var arm = num(xian.body.arm, 0) || num(b.arm, 0);
+  var thigh = num(xian.body.thigh, 0) || num(b.thigh, 0);
+  var chest = num(b.chest, 0);
+  if(!h || !w) return null;
+  var estFat = 0.75 * (waist/h*100) - (arm+thigh)/h * 8;
+  estFat = Math.max(2, Math.min(45, estFat/100));
+  var lbm = w * (1 - estFat);
+  var hm = h/100;
+  var ffmi = lbm / (hm*hm);
+  return {ffmi:ffmi, estFat:estFat, weight:w, height:h, waist:waist, arm:arm, thigh:thigh, chest:chest, hasBody: !!(waist||arm||thigh||chest)};
+}
+function getRoot(){
+  var r = computeFFMI();
+  if(!r) return {name:'未测算', mult:1.0, color:'#9ca3af', fx:'', up:'请完善身高体重数据', debuffs:[]};
+  var idx = 0;
+  for(var i=0;i<CONFIG.ROOTS.length;i++) if(r.ffmi > CONFIG.ROOTS[i].max) idx = i+1;
+  if(idx >= CONFIG.ROOTS.length) idx = CONFIG.ROOTS.length-1;
+  var root = CONFIG.ROOTS[idx];
+  var mult = root.mult;
+  var debuffs = [];
+  if(r.ffmi < CONFIG.DEBUFF_WEAK.ffmi){ mult *= CONFIG.DEBUFF_WEAK.mult; debuffs.push({name:'肉身枯萎', color:'#6b7280', msg:CONFIG.DEBUFF_WEAK.msg}); }
+  if(r.estFat*100 > CONFIG.DEBUFF_FAT.bodyFat){
+    var tmpIdx = Math.max(0, idx-1);
+    mult = CONFIG.ROOTS[tmpIdx].mult;
+    debuffs.push({name:'浊脂淤灵', color:'#a8a29e', msg:CONFIG.DEBUFF_FAT.msg});
+  }
+  return {name:root.name, mult:mult, color:CONFIG.ROOT_COLOR[root.name]||'#9ca3af', fx:root.fx, up:root.up, debuffs:debuffs, ffmi:r.ffmi, rawRoot:root.name};
+}
+
+/* ============================================================
+   修为结算模块
+   ============================================================ */
+function skillOfApp(appName){
+  for(var i=0;i<CONFIG.SKILLS.length;i++){
+    if(CONFIG.SKILLS[i].app === appName) return CONFIG.SKILLS[i];
+  }
+  return null;
+}
+function skillLevel(skillId){ return xian.skills[skillId] || {exp:0, lv:1}; }
+function skillBonus(skillId){
+  var s = skillLevel(skillId);
+  var lvCfg = CONFIG.SKILL_LV[Math.min(s.lv, CONFIG.SKILL_LV.length)-1];
+  return lvCfg ? lvCfg.bonus : 0;
+}
+function effForce(skill){
+  var maxW = 0;
+  (state.workouts||[]).forEach(function(w){
+    (w.items||[]).forEach(function(it){
+      if(it.name !== skill.app) return;
+      (it.sets||[]).forEach(function(s){
+        var wt = num(s.weight, 0);
+        if(wt > maxW) maxW = wt;
+      });
+    });
+  });
+  return maxW * skill.coeff * (1 + skillBonus(skill.id));
+}
+function daoForce(dao){
+  var total = 0;
+  CONFIG.SKILLS.forEach(function(s){ if(s.dao === dao) total += effForce(s); });
+  return total;
+}
+function bodyMet(realmIdx){
+  var r = computeFFMI();
+  if(!r || !r.hasBody) return false;
+  var std = CONFIG.REALMS[realmIdx].body;
+  return r.weight >= std.weight && r.chest >= std.chest && r.arm >= std.arm &&
+    (r.waist > 0 && r.waist <= std.waist) && r.thigh >= std.thigh;
+}
+function forceMet(realmIdx){
+  var dao = CONFIG.DAOS[xian.dao];
+  var std = CONFIG.REALMS[realmIdx].str;
+  var push = daoForce('tian'), pull = daoForce('xuan'), leg = daoForce('houtu');
+  if(dao.check === 'push') return push >= std.push;
+  if(dao.check === 'pull') return pull >= std.pull;
+  if(dao.check === 'leg')  return leg >= std.leg;
+  return push >= std.push && pull >= std.pull && leg >= std.leg;
+}
+function settleWorkout(w, mult, silent){
+  var gained = {};
+  var lvlUps = [];
+  (w.items||[]).forEach(function(it){
+    var sk = skillOfApp(it.name);
+    if(!sk) return;
+    var totalW = 0, totalR = 0;
+    (it.sets||[]).forEach(function(s){
+      totalW += num(s.weight, 0);
+      totalR += num(s.reps, 0);
+    });
+    if(totalW <= 0 || totalR <= 0) return;
+    var isMain = xian.main.indexOf(sk.id) !== -1;
+    var base = totalW * totalR * mult * (isMain ? (1+CONFIG.MAIN_BONUS) : 1);
+    var dunwu = Math.random() < 0.05;
+    var exp = Math.round(base * (dunwu ? 2 : 1));
+    gained[sk.id] = {exp:exp, dunwu:dunwu, main:isMain};
+  });
+  Object.keys(gained).forEach(function(id){
+    var g = gained[id];
+    var s = xian.skills[id];
+    s.exp += g.exp;
+    var next = CONFIG.SKILL_LV[s.lv];
+    if(next && s.exp >= next.need && s.lv < 9){
+      s.lv = next.lv;
+      var sk = CONFIG.SKILLS.filter(function(x){return x.id===id;})[0];
+      lvlUps.push({id:id, cfg:next, name:sk.name, msg:next.msg.replace('{skillName}', sk.name)});
+    }
+    if(!silent){
+      var msg = g.main ? CONFIG.TOAST.main.replace('{expAmount}', g.exp) : CONFIG.TOAST.normal.replace('{expAmount}', g.exp);
+      if(g.dunwu){
+        var skName = CONFIG.SKILLS.filter(function(x){return x.id===id;})[0].name;
+        msg = CONFIG.TOAST.dunwu.replace('{skillName}', skName).replace('{expAmount}', g.exp);
+      }
+      toastQ(msg);
+    }
+  });
+  return lvlUps;
+}
+function checkBreak(){
+  var realm = xian.realm;
+  var layer = xian.layer;
+  var std = CONFIG.REALMS[realm];
+  var next = CONFIG.REALMS[realm+1];
+  if(!next) return null;
+  var fMet = forceMet(realm+1);
+  var bMet = bodyMet(realm+1);
+  if(layer >= 9){
+    if(fMet && bMet){
+      xian.realm = realm+1; xian.layer = 1; xian.bottleneckDays = 0;
+      return {break:true, realm:next};
+    } else {
+      xian.bottleneckDays++;
+      return {bottleneck:true, realm:std, fMet:fMet, bMet:bMet};
+    }
+  } else {
+    if(fMet && bMet){
+      xian.layer++;
+      return {layerUp:true, realm:std, layer:xian.layer};
+    }
+  }
+  return null;
+}
+
+/* ============================================================
+   动画 / Toast
+   ============================================================ */
+function spawnParticles(color, count, root){
+  if(!fxEnabled || animRunning) return;
+  var layer = document.getElementById('fxLayer');
+  if(!layer){ layer = document.createElement('div'); layer.className='fx-layer'; layer.id='fxLayer'; document.body.appendChild(layer); }
+  for(var i=0;i<count;i++){
+    var p = document.createElement('div');
+    p.className='particle';
+    var size = 4 + Math.random()*6;
+    p.style.cssText = 'width:'+size+'px;height:'+size+'px;background:'+(color||'#fbbf24')+';left:'+(Math.random()*100)+'%;top:'+(50+Math.random()*40)+'%;animation-duration:'+(1+Math.random())+'s;opacity:'+(0.5+Math.random()*0.5);
+    layer.appendChild(p);
+    (function(el){ setTimeout(function(){ el && el.remove(); }, 2200); })(p);
+  }
+}
+function lockAnimation(ms){ animRunning = true; setTimeout(function(){ animRunning = false; }, ms || 1600); }
+function showShade(title, sub, foot, color, ms, root){
+  lockAnimation(ms || 2000);
+  var sh = document.createElement('div');
+  sh.className='fx-shade';
+  sh.innerHTML = '<div class="fx-card" style="border-color:'+(color||'#fbbf24')+';">'+
+    '<div class="fx-t1" style="color:'+(color||'#fbbf24')+';">'+title+'</div>'+
+    '<div class="fx-t2">'+(sub||'')+'</div><div class="fx-t3">'+(foot||'')+'</div></div>';
+  document.body.appendChild(sh);
+  if(fxEnabled){
+    var ring = document.createElement('div');
+    ring.className='break-ring'; ring.style.borderColor = color || '#fbbf24';
+    document.body.appendChild(ring);
+    setTimeout(function(){ ring.classList.add('show'); }, 30);
+    setTimeout(function(){ ring.remove(); }, 2000);
+  }
+  setTimeout(function(){ sh.remove(); }, ms || 2000);
+}
+function showBottleneck(brk){
+  lockAnimation(2000);
+  var sh = document.createElement('div');
+  sh.className='bottleneck-shade';
+  sh.innerHTML = '<div class="bn-card"><div class="bn-t1">🔒 境界桎梏</div>'+
+    '<div class="bn-t2">'+CONFIG.BOTTLENECK.replace('{realmName}', brk.realm.name).replace(/\n/g,'<br>')+
+    '</div><div style="margin-top:12px;display:flex;gap:8px;">'+
+    '<div style="flex:1;font-size:11px;color:#9ca3af;text-align:center;">力量'+(brk.fMet?'✓':'✗')+'</div>'+
+    '<div style="flex:1;font-size:11px;color:#9ca3af;text-align:center;">五围'+(brk.bMet?'✓':'✗')+'</div>'+
+    '</div></div>';
+  document.body.appendChild(sh);
+  setTimeout(function(){ sh.remove(); }, 2400);
+}
+var toastQueue = [];
+var toastBusy = false;
+function toastQ(msg){
+  toastQueue.push(msg);
+  if(!toastBusy) nextToast();
+}
+function nextToast(){
+  if(!toastQueue.length){ toastBusy=false; return; }
+  toastBusy = true;
+  var msg = toastQueue.shift();
+  var el = document.getElementById('toast');
+  if(!el){ toastBusy=false; return; }
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  setTimeout(function(){
+    el.classList.add('hidden');
+    setTimeout(nextToast, 250);
+  }, 2300);
+}
+
+/* ============================================================
+   渲染：主视图（总览模块化）+ 系内详情
+   ============================================================ */
+function realmIcon(r){ return ['🌱','💨','🪨','✨','👶','🔥','⚡','👑','🐉','🌩️'][r] || '🌱'; }
+function daoIcon(d){ return {tian:'🖐️', xuan:'🐲', houtu:'⛰️', hunyuan:'☯️'}[d] || '☯️'; }
+function layerCn(n){ return ['一','二','三','四','五','六','七','八','九'][n-1] || n; }
+
+function skillCard(sk){
+  var lv = skillLevel(sk.id);
+  var lvCfg = CONFIG.SKILL_LV[Math.min(lv.lv, CONFIG.SKILL_LV.length)-1];
+  var daoColor = CONFIG.DAOS[sk.dao].color;
+  var next = CONFIG.SKILL_LV[Math.min(lv.lv, CONFIG.SKILL_LV.length-1)+1];
+  var need = lvCfg.need, nextNeed = next ? next.need : need;
+  var pct = nextNeed>need ? Math.min(100, Math.round((lv.exp-need)/(nextNeed-need)*100)) : 100;
+  var isMain = xian.main.indexOf(sk.id)!==-1;
+  return '<div class="skill-card">'+
+    '<div class="skill-head">'+
+      '<div class="skill-ic" style="border:1px solid '+daoColor+'44;">'+sk.icon+'<span class="lv-badge">Lv'+lv.lv+'</span></div>'+
+      '<div class="skill-info">'+
+        '<div class="skill-name">《'+sk.name+'》 <span style="font-size:10px;color:'+daoColor+';">'+lvCfg.name+'</span></div>'+
+        '<div class="skill-meta">'+sk.app+' · 系数×'+sk.coeff+' · 加成+'+(lvCfg.bonus*100)+'%</div>'+
+        '<div class="skill-exp"><div class="skill-exp-fill" style="width:'+pct+'%;background:'+daoColor+';"></div></div>'+
+        '<div class="skill-exp-txt"><span>修为 '+Math.round(lv.exp)+'</span><span>'+(next?next.name:'圆满')+' '+(next?next.need:'—')+'</span></div>'+
+      '</div>'+
+      '<button class="main-btn '+(isMain?'on':'')+'" data-main="'+sk.id+'">'+(isMain?'主修✓':'设主修')+'</button>'+
+    '</div>'+
+    '<div class="skill-effect">✨ 训练特效：'+sk.fx+'</div>'+
+  '</div>';
+}
+function daoSummaryCard(daoKey, count){
+  var dao = CONFIG.DAOS[daoKey];
+  var force = daoForce(daoKey);
+  var list = CONFIG.SKILLS.filter(function(s){ return s.dao===daoKey; });
+  var totalLv = 0, maxLv = 1;
+  list.forEach(function(s){
+    var lv = skillLevel(s.id).lv;
+    totalLv += lv;
+    if(lv > maxLv) maxLv = lv;
+  });
+  var avg = list.length ? (totalLv/list.length) : 1;
+  return '<div class="dao-module" data-dao="'+daoKey+'" style="--dao:'+dao.color+';">'+
+    '<div class="dm-top"><div class="dm-ic">'+daoIcon(daoKey)+'</div>'+
+      '<div class="dm-info"><div class="dm-name">'+dao.name+'</div>'+
+      '<div class="dm-sub">'+count+' 门功法 · 平均 Lv'+avg.toFixed(1)+'</div></div>'+
+      '<div class="dm-go">查看 ›</div>'+
+    '</div>'+
+    '<div class="dm-bar"><div class="dm-bar-fill" style="width:'+Math.min(100, force)+'%;background:'+dao.color+';"></div></div>'+
+    '<div class="dm-foot">等效力量 <b>'+Math.round(force)+'</b> kg</div>'+
+  '</div>';
+}
+
+function renderMain(container){
+  var root = getRoot();
+  var realm = CONFIG.REALMS[xian.realm];
+  var dao = CONFIG.DAOS[xian.dao];
+  var nextRealm = CONFIG.REALMS[xian.realm+1];
+  var prog = nextRealm ? (xian.layer-1)/8*100 : 100;
+  var cr = computeFFMI();
+  var ffmiTxt = cr ? 'FFMI：'+cr.ffmi.toFixed(1) : 'FFMI：--';
+  var dbg = (root.debuffs||[]).map(function(d){ return '<span class="debuff-tag">'+d.name+'</span>'; }).join('');
+
+  var bodyCells = '';
+  var p = getProfile();
+  var b = getBodyLatest() || {};
+  var cells = [
+    {k:'身高', n:p.height||'--', u:'cm'},
+    {k:'体重', n:cr?cr.weight:'--', u:'kg'},
+    {k:'胸围', n:num(b.chest,0)||'--', u:'cm'},
+    {k:'腰围', n:num(b.waist,0)||'--', u:'cm'},
+    {k:'臂围', n:num(xian.body.arm,0)||num(b.arm,0)||'--', u:'cm'},
+    {k:'大腿围', n:num(xian.body.thigh,0)||num(b.thigh,0)||'--', u:'cm'}
+  ];
+  cells.forEach(function(c){ bodyCells += '<div class="bd-cell"><div class="k">'+c.k+'</div><div class="n">'+c.n+'<span class="u"> '+c.u+'</span></div></div>'; });
+
+  container.innerHTML =
+    '<div class="xc-page">'+
+      '<div class="realm-strip" style="--dao:'+dao.color+';">'+
+        '<div class="realm-ic">'+realmIcon(xian.realm)+'</div>'+
+        '<div class="realm-info">'+
+          '<div class="realm-name" style="color:'+dao.color+';">'+realm.name+' · '+layerCn(xian.layer)+'层</div>'+
+          '<div class="realm-sub"><span>道途：'+dao.name+'</span><span>灵根：'+root.name+'（×'+root.mult.toFixed(2)+'）</span></div>'+
+          '<div class="realm-prog"><div class="realm-prog-fill" style="width:'+prog+'%;background:'+dao.color+';"></div></div>'+
+          '<div class="realm-prog-txt">'+(nextRealm?('距 '+nextRealm.name+'：力量达标 + 五围达标'):'已达肉身巅峰')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="root-strip">'+
+        '<span class="root-badge" style="background:'+root.color+'22;color:'+root.color+';">'+root.name+'</span>'+
+        '<span class="root-ffmi">'+ffmiTxt+'</span>'+dbg+
+      '</div>'+
+      '<div class="sec-title">⚔️ 修炼道途 <span class="sub">点击切换</span></div>'+
+      '<div class="dao-grid">'+daoGridHTML()+'</div>'+
+      '<div class="sec-title">📜 功法总览 <span class="sub">点击进入系内功法</span></div>'+
+      '<div class="dao-modules">'+
+        daoSummaryCard('tian', 12)+daoSummaryCard('xuan', 12)+daoSummaryCard('houtu', 11)+
+      '</div>'+
+      '<div class="sec-title">🧬 肉身档案 <span class="sub">完善数据测算灵根</span></div>'+
+      '<div class="body-card"><div class="body-grid">'+bodyCells+'</div>'+
+        '<button class="body-edit" data-act="editBody">✏️ 修改身体数据</button></div>'+
+      '<div class="sec-title">📖 系统说明</div>'+
+      '<div class="help-card">'+CONFIG.HELP.replace(/\n/g,'<br>')+'</div>'+
+      '<div style="height:80px;"></div>'+
+    '</div>';
+}
+function daoGridHTML(){
+  var html = '';
+  Object.keys(CONFIG.DAOS).forEach(function(kk){
+    var d = CONFIG.DAOS[kk];
+    var unlocked = kk!=='hunyuan' || xian.realm >= 4;
+    var active = xian.dao===kk;
+    html += '<div class="dao-card '+(active?'active':'')+'" data-dao="'+kk+'" style="'+(active?'border-color:'+d.color+';':'')+'">'+
+      '<div class="dc-ic">'+daoIcon(kk)+'</div>'+
+      '<div class="dc-name" style="color:'+(active?d.color:'')+'">'+d.name+'</div>'+
+      '<div class="dc-val">'+(kk==='hunyuan'?(unlocked?'已解锁':'元婴解锁'):'突破校验')+'</div>'+
+    '</div>';
+  });
+  return html;
+}
+function renderDaoDetail(container, daoKey){
+  var dao = CONFIG.DAOS[daoKey];
+  var list = CONFIG.SKILLS.filter(function(s){ return s.dao===daoKey; });
+  var html = '<div class="xc-page">'+
+    '<div class="detail-head" style="--dao:'+dao.color+';">'+
+      '<button class="back-btn" data-act="backOverview">‹</button>'+
+      '<div><div class="dh-name">'+dao.name+'</div>'+
+      '<div class="dh-sub">'+list.length+' 门功法 · 等效力量 '+Math.round(daoForce(daoKey))+'kg</div></div>'+
+    '</div>'+
+    '<div class="skills-list">'+list.map(skillCard).join('')+'</div>'+
+    '<div style="height:80px;"></div></div>';
+  container.innerHTML = html;
+}
+
+/* ============================================================
+   交互绑定（容器内事件委托）
+   ============================================================ */
+var lastClick = {};
+function debounce(key, fn){
+  var now = Date.now();
+  if(lastClick[key] && now - lastClick[key] < 300) return;
+  lastClick[key] = now;
+  fn();
+}
+function switchDao(dao, container){
+  debounce('dao', function(){
+    if(animRunning){ toastQ('动画播放中，请稍候'); return; }
+    if(dao === 'hunyuan' && xian.realm < 4){
+      toastQ(CONFIG.DAOS.hunyuan.unlock);
+      toastQ('当前境界暂未解锁混元道，稳步修炼至元婴境即可开启。');
+      return;
+    }
+    xian.dao = dao; save();
+    spawnParticles(CONFIG.DAOS[dao].color, 20);
+    toastQ('道途更迭，调整修炼侧重，稳步打磨属于你的肉身！');
+    toastQ(CONFIG.DAOS[dao].unlock);
+    renderMain(container);
+  });
+}
+function toggleMain(skillId, container){
+  debounce('main', function(){
+    var idx = xian.main.indexOf(skillId);
+    var sk = CONFIG.SKILLS.filter(function(x){return x.id===skillId;})[0];
+    if(idx !== -1){
+      xian.main.splice(idx,1); save();
+      toastQ(CONFIG.MAIN_MSG_OFF.replace('{skillName}', sk.name));
+    } else {
+      if(xian.main.length >= CONFIG.MAIN_MAX){ toastQ(CONFIG.MAIN_MSG_LIMIT); return; }
+      xian.main.push(skillId); save();
+      toastQ(CONFIG.MAIN_MSG_ON.replace('{skillName}', sk.name));
+    }
+    renderMain(container);
+  });
+}
+function openBodyEditor(container){
+  if(animRunning){ toastQ('动画播放中，请稍候'); return; }
+  var p = getProfile();
+  var b = getBodyLatest() || {};
+  var m = document.createElement('div');
+  m.className='modal';
+  m.innerHTML = '<div class="modal-card"><h3>🧬 修改身体数据</h3>'+
+    '<div class="form-field"><label>身高 cm（基准184自适应）</label><input id="edHeight" type="number" step="0.1" value="'+(p.height||'')+'"/></div>'+
+    '<div class="form-field"><label>空腹体重 kg</label><input id="edWeight" type="number" step="0.1" value="'+(num(b.weight,0)||num(p.weight,0)||'')+'"/></div>'+
+    '<div class="form-grid">'+
+      '<div class="form-field"><label>胸围 cm</label><input id="edChest" type="number" step="0.1" value="'+(num(b.chest,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>空腹腰围 cm</label><input id="edWaist" type="number" step="0.1" value="'+(num(b.waist,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>放松臂围 cm</label><input id="edArm" type="number" step="0.1" value="'+(num(xian.body.arm,0)||num(b.arm,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>大腿围 cm</label><input id="edThigh" type="number" step="0.1" value="'+(num(xian.body.thigh,0)||num(b.thigh,0)||'')+'"/></div>'+
+    '</div>'+
+    '<div class="form-actions"><button class="btn ghost" data-act="bodyCancel">取消</button>'+
+    '<button class="btn primary" data-act="bodySave">保存</button></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){
+    if(e.target.dataset.act==='bodyCancel') m.remove();
+    if(e.target.dataset.act==='bodySave'){
+      var h = num(document.getElementById('edHeight').value, 0);
+      var w = num(document.getElementById('edWeight').value, 0);
+      var chest = num(document.getElementById('edChest').value, 0);
+      var waist = num(document.getElementById('edWaist').value, 0);
+      var arm = num(document.getElementById('edArm').value, 0);
+      var thigh = num(document.getElementById('edThigh').value, 0);
+      if(h<=0 || w<=0){ toastQ(CONFIG.TOAST.badVal); return; }
+      state.profile = state.profile || {};
+      state.profile.height = h;
+      if(!state.bodyLog) state.bodyLog = [];
+      var d = new Date();
+      var ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var entry = {date:ds, weight:w, bodyFat:'', bmr:'', chest:chest||'', waist:waist||'', hip:'', skeletal:'', visceral:''};
+      var idx = state.bodyLog.findIndex(function(x){return x.date===ds;});
+      if(idx>=0) state.bodyLog[idx] = Object.assign(state.bodyLog[idx], entry);
+      else state.bodyLog.push(entry);
+      xian.body.arm = arm; xian.body.thigh = thigh;
+      save(); m.remove();
+      var root = getRoot();
+      if(root && root.ffmi) toastQ('灵根已更新：'+root.name+'（FFMI '+root.ffmi.toFixed(1)+'）');
+      var brk = checkBreak();
+      if(brk && brk.break) showShade('✨ 突破！'+brk.realm.name, brk.realm.sub, brk.realm.foot, CONFIG.DAOS[xian.dao].color, 2200);
+      renderMain(container);
+    }
+  });
+}
+function bindEvents(container){
+  container.addEventListener('click', function(e){
+    var act = e.target.closest('[data-act]');
+    var daoEl = e.target.closest('[data-dao]');
+    var mainEl = e.target.closest('[data-main]');
+    if(act && act.dataset.act === 'editBody'){ openBodyEditor(container); return; }
+    if(act && act.dataset.act === 'backOverview'){ renderMain(container); return; }
+    if(daoEl){
+      var dk = daoEl.dataset.dao;
+      if(daoEl.classList.contains('dao-module')){ renderDaoDetail(container, dk); return; }
+      switchDao(dk, container); return;
+    }
+    if(mainEl){ toggleMain(mainEl.dataset.main, container); return; }
+  });
+}
+
+/* ============================================================
+   对外 API
+   ============================================================ */
+/* 自注入修仙页样式（xian.html 与 SPA 双入口共用） */
+function injectStyle(){
+  if(document.getElementById('xian-core-style')) return;
+  var st = document.createElement('style');
+  st.id = 'xian-core-style';
+  st.textContent = [
+    '.xc-page{padding:4px 16px 20px;}',
+    '.realm-strip{display:flex;align-items:center;gap:10px;margin-top:4px;background:var(--card,#131c31);border:1px solid var(--line,#26314d);border-radius:14px;padding:12px;}',
+    '.realm-ic{font-size:30px;line-height:1;filter:drop-shadow(0 0 8px var(--dao,#fbbf24));}',
+    '.realm-info{flex:1;min-width:0;}',
+    '.realm-name{font-size:17px;font-weight:800;}',
+    '.realm-sub{font-size:11px;color:var(--muted,#8fa3bf);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;}',
+    '.realm-prog{height:8px;background:#1a2540;border-radius:8px;margin-top:8px;overflow:hidden;}',
+    '.realm-prog-fill{height:100%;border-radius:8px;transition:width .4s;}',
+    '.realm-prog-txt{font-size:10px;color:var(--muted,#8fa3bf);margin-top:4px;text-align:right;}',
+    '.root-strip{display:flex;align-items:center;gap:8px;margin-top:8px;background:var(--card,#131c31);border-radius:12px;padding:8px 12px;}',
+    '.root-badge{font-size:13px;font-weight:800;padding:3px 10px;border-radius:20px;white-space:nowrap;}',
+    '.root-ffmi{font-size:12px;color:var(--muted,#8fa3bf);margin-left:auto;}',
+    '.debuff-tag{font-size:11px;color:#f59e0b;margin-left:8px;}',
+    '.sec-title{display:flex;align-items:baseline;gap:8px;font-size:15px;font-weight:800;margin:16px 2px 10px;}',
+    '.sec-title .sub{font-size:11px;color:var(--muted,#8fa3bf);font-weight:400;}',
+    '.dao-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}',
+    '.dao-card{border-radius:14px;padding:10px;background:var(--card,#131c31);border:1px solid var(--line,#26314d);text-align:center;cursor:pointer;}',
+    '.dao-card.active{border-color:var(--dao,#fbbf24);box-shadow:0 0 10px var(--dao,#fbbf24)33;}',
+    '.dao-card .dc-ic{font-size:22px;margin-bottom:4px;}',
+    '.dao-card .dc-name{font-size:13px;font-weight:800;margin-bottom:4px;}',
+    '.dao-card .dc-val{font-size:11px;color:var(--muted,#8fa3bf);}',
+    '.dao-modules{display:flex;flex-direction:column;gap:10px;}',
+    '.dao-module{background:var(--card,#131c31);border:1px solid var(--line,#26314d);border-left:4px solid var(--dao,#fbbf24);border-radius:14px;padding:12px;cursor:pointer;}',
+    '.dao-module .dm-top{display:flex;align-items:center;gap:10px;}',
+    '.dao-module .dm-ic{font-size:26px;}',
+    '.dao-module .dm-info{flex:1;min-width:0;}',
+    '.dao-module .dm-name{font-size:15px;font-weight:800;}',
+    '.dao-module .dm-sub{font-size:11px;color:var(--muted,#8fa3bf);margin-top:2px;}',
+    '.dao-module .dm-go{font-size:13px;color:var(--dao,#fbbf24);font-weight:700;}',
+    '.dao-module .dm-bar{height:6px;background:#1a2540;border-radius:6px;margin:10px 0 6px;overflow:hidden;}',
+    '.dao-module .dm-bar-fill{height:100%;border-radius:6px;}',
+    '.dao-module .dm-foot{font-size:11px;color:var(--muted,#8fa3bf);}',
+    '.dao-module .dm-foot b{color:var(--dao,#fbbf24);font-size:14px;}',
+    '.skills-list{display:flex;flex-direction:column;gap:10px;}',
+    '.skill-card{background:var(--card,#131c31);border-radius:14px;padding:12px;margin-bottom:10px;border:1px solid var(--line,#26314d);}',
+    '.skill-head{display:flex;align-items:center;gap:10px;}',
+    '.skill-ic{width:38px;height:38px;border-radius:10px;background:#1a2540;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;position:relative;}',
+    '.skill-ic .lv-badge{position:absolute;bottom:-4px;right:-4px;background:#fbbf24;color:#111;font-size:9px;font-weight:800;border-radius:8px;padding:0 4px;}',
+    '.skill-info{flex:1;min-width:0;}',
+    '.skill-name{font-size:14px;font-weight:800;}',
+    '.skill-meta{font-size:11px;color:var(--muted,#8fa3bf);margin-top:2px;}',
+    '.skill-exp{height:5px;background:#1a2540;border-radius:4px;margin-top:6px;overflow:hidden;}',
+    '.skill-exp-fill{height:100%;border-radius:4px;transition:width .4s;}',
+    '.skill-exp-txt{font-size:10px;color:var(--muted,#8fa3bf);margin-top:4px;display:flex;justify-content:space-between;}',
+    '.main-btn{flex:0 0 auto;border:1px solid var(--line,#26314d);background:#1a2540;color:var(--text,#e2e8f0);border-radius:10px;padding:6px 10px;font-size:11px;}',
+    '.main-btn.on{background:linear-gradient(90deg,#f59e0b,#fbbf24);color:#111;border-color:transparent;font-weight:700;}',
+    '.skill-effect{font-size:10px;color:#7f9cbd;margin-top:6px;font-style:italic;}',
+    '.body-card{background:var(--card,#131c31);border-radius:14px;padding:12px;}',
+    '.body-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}',
+    '.bd-cell{background:#1a2540;border-radius:10px;padding:8px;text-align:center;}',
+    '.bd-cell .k{font-size:10px;color:var(--muted,#8fa3bf);}',
+    '.bd-cell .n{font-size:15px;font-weight:800;margin-top:2px;}',
+    '.bd-cell .u{font-size:10px;color:var(--muted,#8fa3bf);font-weight:400;}',
+    '.body-edit{margin-top:10px;width:100%;border:1px solid var(--line,#26314d);background:#1a2540;color:var(--text,#e2e8f0);border-radius:10px;padding:9px;font-size:13px;}',
+    '.help-card{background:var(--card,#131c31);border-radius:14px;padding:14px;font-size:12px;color:#b6c6dc;line-height:1.8;}',
+    '.detail-head{display:flex;align-items:center;gap:12px;background:var(--card,#131c31);border:1px solid var(--line,#26314d);border-radius:14px;padding:12px;margin:4px 0 14px;}',
+    '.detail-head .back-btn{width:32px;height:32px;border-radius:50%;background:#1a2540;border:0;color:var(--text,#e2e8f0);font-size:18px;}',
+    '.detail-head .dh-name{font-size:16px;font-weight:800;}',
+    '.detail-head .dh-sub{font-size:11px;color:var(--muted,#8fa3bf);margin-top:2px;}',
+    '.btn-locked{opacity:.55;pointer-events:none;transform:scale(.98);}',
+    ''
+  ].join('\n');
+  document.head.appendChild(st);
+}
+
+var API = {
+  init: function(){
+    injectStyle();
+    state = loadState();
+    if(!state){
+      toastQ('未检测到训练数据，请先在 FitRecord 中记录训练');
+      state = {profile:{height:175}, bodyLog:[], workouts:[], plans:[], folders:[], customEx:[]};
+    }
+    ensureXian();
+    if(state.xian && state.xian.dao && CONFIG.DAOS[state.xian.dao]) xian.dao = state.xian.dao;
+    return xian;
+  },
+  renderTo: function(container){
+    if(!xian) this.init();
+    renderMain(container);
+    bindEvents(container);
+    if(!navigator.onLine) toastQ(CONFIG.TOAST.offline);
+  },
+  /* 自动结算：训练完成后调用，同步全部未结算 */
+  autoSettle: function(silent){
+    if(!state || !xian) return;
+    var root = getRoot();
+    var mult = root ? root.mult : 1.0;
+    var pending = (state.workouts||[]).filter(function(w){ return !w.cultivationSettled; });
+    if(!pending.length) return;
+    var lvlUps = [];
+    pending.forEach(function(w){
+      var ups = settleWorkout(w, mult, !!silent);
+      lvlUps = lvlUps.concat(ups);
+      w.cultivationSettled = true;
+    });
+    save();
+    lvlUps.forEach(function(u){
+      if(!silent){
+        toastQ(u.msg);
+        spawnParticles(CONFIG.DAOS[CONFIG.SKILLS.filter(function(x){return x.id===u.id;})[0].dao].color, 20);
+      }
+    });
+    var brk = checkBreak();
+    if(brk && brk.break){
+      showShade('✨ 突破！'+brk.realm.name, brk.realm.sub, brk.realm.foot, CONFIG.DAOS[xian.dao].color, 2400);
+      spawnParticles(CONFIG.DAOS[xian.dao].color, 40);
+    } else if(brk && brk.bottleneck){
+      showBottleneck(brk);
+    } else if(brk && brk.layerUp){
+      spawnParticles(CONFIG.DAOS[xian.dao].color, 25);
+      toastQ('修为精进！'+brk.realm.name+' · '+layerCn(brk.layer)+'层');
+    }
+    return {settled: pending.length, lvlUps: lvlUps.length, broken: !!(brk && brk.break)};
+  },
+  syncAll: function(container){
+    /* 手动同步（保留） */
+    if(animRunning){ toastQ('动画播放中，请稍候'); return; }
+    var pending = (state.workouts||[]).filter(function(w){ return !w.cultivationSettled; });
+    if(!pending.length){ toastQ(CONFIG.TOAST.noNew); return; }
+    var r = API.autoSettle(false);
+    toastQ(r.settled > 0 ? CONFIG.TOAST.syncDone : CONFIG.TOAST.noNew);
+    if(container) renderMain(container);
+  },
+  getRoot: getRoot,
+  CONFIG: CONFIG
+};
+global.XianCore = API;
+})(window);
