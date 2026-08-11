@@ -22,6 +22,15 @@ const PART_IMG = {
   '肩':'img/ex_ohp.jpg','手臂':'img/ex_curl.jpg','核心':'img/ex_crunch.jpg','有氧':'img/ex_cardio.jpg',
   '全身':'img/hero_gym.jpg','拉伸':'img/ex_band.jpg'
 };
+
+/* ---------- 后台训练持久化：state 字段初始化 ---------- */
+try{
+  if(state){
+    if(!('currentWorkout' in state)) state.currentWorkout = null;
+    if(!('collapsedEx' in state)) state.collapsedEx = {};
+    if(!('sheetLock' in state)) state.sheetLock = false;
+  }
+}catch(e){}
 function exImgHTML(ex, fallbackColor){
   if(ex && ex.img) return '<img src="'+ex.img+'" alt="" loading="lazy">';
   const key = ex && ex.svg;
@@ -39,9 +48,34 @@ function planArt(plan){
 /* ---------- 训练页头图（包装原函数，避免同名声明提升问题） ---------- */
 const _openWorkoutBase = openWorkout;
 openWorkout = function(){
+  // 开始新训练时清掉后台残留（如有）
+  if(state && state.currentWorkout){
+    state.currentWorkout = null;
+    try{save();}catch(e){}
+  }
   _openWorkoutBase();
   const hero = $('#workout-hero');
   hero.style.background = 'linear-gradient(180deg,rgba(10,14,24,.25),rgba(10,14,24,.55)),url("img/hero_gym.jpg") center 28%/cover no-repeat,#141a26';
+  // 绑定折叠 / 长按拖动
+  setTimeout(bindWorkoutListUI, 0);
+};
+
+/* ---------- closeWorkout：保留 session 到 state.currentWorkout ---------- */
+const _closeWorkoutBase = closeWorkout;
+closeWorkout = function(){
+  // 不停掉计时器，session 不清空；只藏视图 + 保存后台
+  $('#workout-view').classList.add('hidden');
+  $('#tabbar').classList.remove('hidden');
+  if(currentTab!=='train') $('#topbar').classList.remove('hidden');
+  if(state){ state.currentWorkout = session; try{save();}catch(e){} }
+  render();
+};
+
+/* ---------- finishWorkout：完成时清理后台 ---------- */
+const _finishWorkoutBase = finishWorkout;
+finishWorkout = function(){
+  _finishWorkoutBase();
+  if(state){ state.currentWorkout = null; try{save();}catch(e){} }
 };
 
 /* ---------- 顶栏：动作库页也隐藏（用页内搜索条） ---------- */
@@ -62,6 +96,14 @@ function setTab(tab){
 function renderHome(){
   const folders = state.folders.map(folderCardHTML).join('');
   const solo = state.plans.filter(p=>!p.folderId || !state.folders.find(f=>f.id===p.folderId)).map(planCardHTML).join('');
+
+  // 计算"我的训练计划"总数，决定缩略网格列数
+  const soloCount = state.plans.filter(p=>!p.folderId || !state.folders.find(f=>f.id===p.folderId)).length;
+  const totalItems = state.folders.length + soloCount;
+  let colsClass = 'cols-1';
+  if(totalItems === 2) colsClass = 'cols-2';
+  else if(totalItems >= 3) colsClass = 'cols-many';
+
   const newPlanCard = `
     <div class="new-plan-card" data-act="newPlan">
       <span class="np-ic">+</span>新建计划
@@ -79,7 +121,11 @@ function renderHome(){
         </div>
       </div>
     </div>`).join('');
+
+  // 训练中缩略卡（若有后台训练）
+  const mini = activeMiniHTML();
   return `
+    ${mini}
     <div class="home-header">
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="brand">FitRecord</div>
@@ -96,7 +142,7 @@ function renderHome(){
     <div class="section-title">
       <h2>我的训练计划 <span style="font-size:18px;">🔥</span></h2>
     </div>
-    ${folders}${solo || ''}${(!folders && !solo) ? '' : ''}
+    ${(folders || solo) ? `<div class="plans-folders ${colsClass}">${folders}${solo || ''}</div>` : ''}
     ${newPlanCard}
     <div class="section-title"><h2>系统内置训练库 <span style="font-size:18px;">🚩</span></h2></div>
     <div class="lib-scroll">${libCards}</div>
@@ -352,8 +398,9 @@ function renderWorkoutList(){
       </div>`;
     }).join('');
     const exObj = resolveEx(it.exId) || it;
+    const collapsedCls = (state.collapsedEx && state.collapsedEx[it.exId]) ? ' collapsed' : '';
     return `
-      <div class="ex-card ${(it.supersetWith!==null&&it.supersetWith!==undefined)?'superset-card':''}">
+      <div class="ex-card ${(it.supersetWith!==null&&it.supersetWith!==undefined)?'superset-card':''}${collapsedCls}" data-ex="${i}" data-ex-id="${escapeHtml(it.exId)}">
         <div class="ex-head">
           <div class="ex-thumb" style="background:#f3f6fb;overflow:hidden;padding:0;">${exImgHTML(exObj)}</div>
           <div class="ex-info">
@@ -364,12 +411,23 @@ function renderWorkoutList(){
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82.33l.06.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
         </div>
+        ${(()=>{
+          const done = it.sets.filter(s=>s.done).length;
+          const total = it.sets.length;
+          const pct = total ? Math.round(done/total*100) : 0;
+          return `<div class="ex-progress">
+            <div class="ex-progress-bar"><div class="ex-progress-bar-fill" style="width:${pct}%"></div></div>
+            <span class="ex-progress-text">${done}/${total}</span>
+          </div>`;
+        })()}
         ${refHtml}${suggHtml}${notesTag}
         <div class="sets-head"><span>组</span><span>${unit}</span><span>次</span><span>RPE</span><span>完成</span><span></span></div>
         ${rows}
         <button class="add-set-btn" data-act="addSet" data-ex="${i}">+ 添加一组</button>
       </div>`;
   }).join('');
+  // 重新绑定折叠 / 长按拖动
+  setTimeout(bindWorkoutListUI, 0);
 }
 
 /* ---------- 滚轮选择器 ---------- */
@@ -715,6 +773,10 @@ document.addEventListener('click', e=>{
     return;
   }
 
+  // v5：训练中卡
+  if(a==='resumeWorkout'){ e.stopPropagation(); e.preventDefault(); resumeWorkout(); return; }
+  if(a==='discardWorkout'){ e.stopPropagation(); e.preventDefault(); discardWorkout(); return; }
+
   // 创建动作
   if(a==='openCreateEx'){ openCreateEx(); return; }
   if(a==='closeCreateEx'){ closeCreateEx(); return; }
@@ -942,3 +1004,213 @@ try{ setTab(currentTab || 'train'); }catch(e){}
     if(currentTab === 'me') setTimeout(refreshBusuanzi, 200);
   });
 })();
+
+/* ============================================================
+   v5 新增：训练中卡 · 折叠 · 拖动排序 · 上次预填 · 渐进超负荷
+   ============================================================ */
+
+/* ---------- 主页"训练中"缩略卡 ---------- */
+function activeMiniHTML(){
+  const w = state && state.currentWorkout;
+  if(!w) return '';
+  let doneSets = 0, totalSets = 0;
+  w.items.forEach(it=> it.sets.forEach(s=>{ totalSets++; if(s.done) doneSets++; }));
+  const dur = w.fixedDur ? w.fixedDur*60 : Math.max(0, Math.floor((Date.now() - w.startAt - (w.paused||0))/1000));
+  const first = w.items[0];
+  const img = first ? ((first.img) || (EX_IMG[first.svg]) || PART_IMG[first.part||'全身']) : PART_IMG['全身'];
+  return `
+    <div class="mini-active" data-act="resumeWorkout">
+      <div class="mini-active-ic"><img src="${img}" alt="" loading="lazy"></div>
+      <div class="mini-active-info">
+        <div class="mini-active-title">🟢 训练中 · ${escapeHtml(w.planName)}</div>
+        <div class="mini-active-meta">进度 ${doneSets}/${totalSets} · 时长 ${fmtTime(dur)}</div>
+      </div>
+      <button class="mini-active-del" data-act="discardWorkout" title="删除本次训练">🗑</button>
+    </div>`;
+}
+
+function resumeWorkout(){
+  if(!state || !state.currentWorkout) return;
+  session = state.currentWorkout;
+  state.currentWorkout = null;
+  try{save();}catch(e){}
+  $('#workout-view').classList.remove('hidden');
+  $('#tabbar').classList.add('hidden');
+  $('#topbar').classList.add('hidden');
+  $('#wo-title').textContent = session.planName + (session.backfillDate ? `（补录 ${fmtMD(session.backfillDate)}）` : '');
+  const hero = $('#workout-hero');
+  hero.style.background = 'linear-gradient(180deg,rgba(10,14,24,.25),rgba(10,14,24,.55)),url("img/hero_gym.jpg") center 28%/cover no-repeat,#141a26';
+  startDur();
+  renderWorkoutList();
+  toast('已恢复训练');
+}
+function discardWorkout(){
+  if(!confirm('确认删除本次训练记录？已填的组数将丢失（不会计入历史）。')) return;
+  if(state){ state.currentWorkout = null; try{save();}catch(e){} }
+  session = null;
+  stopDur();
+  render();
+  toast('训练记录已删除');
+}
+
+/* ---------- 单击折叠 / 长按拖动排序 ---------- */
+let dragCtx = null;
+let pressTimer = null;
+let pressStart = null;
+
+function bindWorkoutListUI(){
+  const list = $('#workout-list');
+  if(!list) return;
+  if(list.dataset.uiBound === '1') return;
+  list.dataset.uiBound = '1';
+
+  const getCard = e => {
+    if(e.target.closest('[data-act="exMenu"]')) return null;
+    const head = e.target.closest('.ex-head');
+    if(!head) return null;
+    return head.closest('.ex-card');
+  };
+  const beginPress = (card, x, y) => {
+    if(card.classList.contains('collapsed')) return;  // 折叠时不响应拖动
+    pressStart = {x, y, card};
+    pressTimer = setTimeout(()=>{
+      if(dragCtx) return;
+      startDrag(card, x, y);
+      try{ if(navigator.vibrate) navigator.vibrate(30); }catch(e){}
+    }, 350);
+  };
+  const endPress = () => {
+    clearTimeout(pressTimer); pressTimer = null; pressStart = null;
+    if(dragCtx) endDrag();
+  };
+  const onMove = (x, y) => {
+    if(dragCtx){ moveDrag(x, y); return; }
+    if(pressTimer && pressStart){
+      if(Math.abs(x-pressStart.x)>10 || Math.abs(y-pressStart.y)>10){
+        clearTimeout(pressTimer); pressTimer = null;
+      }
+    }
+  };
+  list.addEventListener('touchstart', e=>{
+    const c = getCard(e);
+    if(c) beginPress(c, e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:true});
+  list.addEventListener('touchmove', e=>{
+    if(dragCtx){ moveDrag(e.touches[0].clientX, e.touches[0].clientY); if(e.cancelable) e.preventDefault(); return; }
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:false});
+  list.addEventListener('touchend', endPress);
+  list.addEventListener('touchcancel', endPress);
+
+  list.addEventListener('mousedown', e=>{
+    const c = getCard(e);
+    if(c) beginPress(c, e.clientX, e.clientY);
+  });
+  list.addEventListener('mousemove', e=>{
+    if(dragCtx){ moveDrag(e.clientX, e.clientY); return; }
+    onMove(e.clientX, e.clientY);
+  });
+  list.addEventListener('mouseup', endPress);
+  list.addEventListener('mouseleave', endPress);
+
+  // 单击折叠（不与拖动冲突：拖动结束不触发 click）
+  list.addEventListener('click', e=>{
+    if(dragCtx) return;
+    if(e.target.closest('[data-act="exMenu"]')) return;
+    const head = e.target.closest('.ex-head');
+    if(!head) return;
+    const card = head.closest('.ex-card');
+    if(!card) return;
+    card.classList.toggle('collapsed');
+    if(card.dataset.exId){
+      if(!state.collapsedEx) state.collapsedEx = {};
+      state.collapsedEx[card.dataset.exId] = card.classList.contains('collapsed');
+      try{save();}catch(e){}
+    }
+  });
+}
+
+function startDrag(card, x, y){
+  const r = card.getBoundingClientRect();
+  dragCtx = {
+    card, rect:r, startX:x, startY:y,
+    list: card.parentNode,
+    placeholder: document.createElement('div'),
+    placeholderInjected:false,
+  };
+  dragCtx.placeholder.className = 'ex-card-placeholder';
+  dragCtx.placeholder.style.height = r.height + 'px';
+  card.parentNode.insertBefore(dragCtx.placeholder, card);
+  dragCtx.placeholderInjected = true;
+  card.classList.add('dragging');
+  card.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;z-index:999;pointer-events:none;background:var(--card);border-radius:18px;margin:0;`;
+  dragCtx.cards = [...card.parentNode.querySelectorAll('.ex-card:not(.dragging):not(.ex-card-placeholder)')];
+}
+
+function moveDrag(x, y){
+  if(!dragCtx) return;
+  const dx = x - dragCtx.startX, dy = y - dragCtx.startY;
+  dragCtx.card.style.transform = `translate(${dx}px, ${dy}px) rotate(1.5deg)`;
+  const cy = dragCtx.rect.top + dy + dragCtx.rect.height/2;
+  // 找到手指位置所在的卡片，决定 placeholder 位置
+  let target = null;
+  for(const c of dragCtx.cards){
+    const cr = c.getBoundingClientRect();
+    if(cy > cr.top && cy < cr.bottom){ target = c; break; }
+  }
+  if(target){
+    const tRect = target.getBoundingClientRect();
+    if(cy < tRect.top + tRect.height/2){
+      target.parentNode.insertBefore(dragCtx.placeholder, target);
+    } else {
+      target.parentNode.insertBefore(dragCtx.placeholder, target.nextSibling);
+    }
+  } else if(dragCtx.cards.length){
+    const first = dragCtx.cards[0], last = dragCtx.cards[dragCtx.cards.length-1];
+    if(cy < first.getBoundingClientRect().top){
+      first.parentNode.insertBefore(dragCtx.placeholder, first);
+    } else if(cy > last.getBoundingClientRect().bottom){
+      last.parentNode.insertBefore(dragCtx.placeholder, last.nextSibling);
+    }
+  }
+}
+
+function endDrag(){
+  if(!dragCtx) return;
+  const card = dragCtx.card;
+  const ph = dragCtx.placeholder;
+  // 把 card 插入到 placeholder 位置
+  if(ph.parentNode){
+    ph.parentNode.insertBefore(card, ph);
+  }
+  ph.remove();
+  card.classList.remove('dragging');
+  card.style.cssText = '';
+
+  // 重新读取 DOM 顺序，重排 session.items
+  const newDomCards = [...card.parentNode.querySelectorAll('.ex-card')];
+  const oldItems = session.items.slice();
+  const newOrder = newDomCards.map(c=>oldItems[+c.dataset.ex]).filter(Boolean);
+  if(newOrder.length === oldItems.length){
+    // 重新映射 supersetWith 到新索引
+    const idxOf = item => newOrder.indexOf(item);
+    newOrder.forEach(it=>{
+      if(it.supersetWith!==null && it.supersetWith!==undefined){
+        const ref = oldItems[it.supersetWith];
+        it.supersetWith = ref ? idxOf(ref) : null;
+      }
+    });
+    session.items = newOrder;
+  }
+  dragCtx = null;
+  renderWorkoutList();
+  toast('顺序已更新');
+}
+
+/* ---------- sheet 上方空白点击关闭 ---------- */
+$('#overlay').addEventListener('click', e=>{
+  if(e.target === e.currentTarget){
+    if(state && state.sheetLock){ closeSheet(); state.sheetLock = false; return; }
+    closeSheet();
+  }
+});
