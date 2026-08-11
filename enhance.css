@@ -506,3 +506,143 @@ input, textarea, select{font-size:16px;-webkit-text-size-adjust:100%;}
   .xian-stage{height:200px;}
   .xg-stage{height:240px;}
 }
+
+/* v8.11: 身体数据主页（深色修仙主题 + 截图2 布局） */
+.bd-hero{display:flex;align-items:center;gap:10px;padding:12px 4px;background:#0b1120;border-bottom:1px solid #1e293b;}
+.bd-back{background:#1e293b !important;color:#7cf0a9 !important;}
+.bd-hero h3{font-size:18px;color:#e2e8f0;}
+.bd-weight-row{display:flex;align-items:flex-end;justify-content:space-between;padding:24px 20px 14px;}
+.bd-weight .n{font-size:64px;font-weight:800;color:#fff;line-height:1;}
+.bd-weight .u{font-size:24px;color:#94a3b8;font-weight:600;margin-left:8px;}
+.bd-edit-btn{background:rgba(124,240,169,.12);color:#7cf0a9;border:1px solid #7cf0a9;border-radius:18px;padding:6px 14px;font-size:13px;display:inline-flex;align-items:center;gap:4px;}
+.bd-section{padding:14px 16px;}
+.bd-sec-title{font-size:14px;font-weight:700;color:#94a3b8;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.bd-sec-title::before{content:'';width:3px;height:14px;background:#7cf0a9;border-radius:2px;}
+.bd-history-count{margin-left:auto;font-weight:400;color:#64748b;font-size:12px;}
+.bd-3grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+.bd-2grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.bd-cell{background:#1e293b;border-radius:10px;padding:14px 12px;position:relative;}
+.bd-cell .k{font-size:12px;color:#94a3b8;margin-bottom:6px;}
+.bd-cell .n{font-size:18px;font-weight:700;color:#e2e8f0;display:flex;align-items:baseline;}
+.bd-cell .u{font-size:12px;color:#94a3b8;font-weight:500;}
+.bd-cell .not-set{color:#64748b;font-weight:500;font-size:14px;}
+.bd-arrow{position:absolute;right:8px;top:50%;transform:translateY(-50%);color:#475569;font-size:16px;font-weight:700;line-height:1;}
+.bd-overview{background:linear-gradient(135deg,#2563eb,#1e40af);border-radius:14px;padding:16px;margin:0 16px 12px;color:#fff;}
+.bd-overview .ov-head{display:flex;justify-content:space-between;margin-bottom:8px;}
+.bd-overview .ov-head .go{font-size:12px;opacity:.85;}
+.bd-overview .ov-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+.bd-overview .ov-k{font-size:13px;opacity:.9;}
+.bd-overview .ov-v{font-size:32px;font-weight:800;}
+.bd-overview .ov-v .u{font-size:14px;opacity:.9;margin-left:4px;}
+.bd-overview .ov-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.bd-overview .bd-pill{background:rgba(255,255,255,.18);color:#fff;font-size:11px;padding:4px 10px;border-radius:12px;font-weight:600;}
+.bd-history{padding:0 16px 16px;}
+.bd-h-item{display:flex;align-items:center;justify-content:space-between;background:#1e293b;border-radius:12px;padding:14px 16px;margin-bottom:8px;}
+.bd-h-item .d{font-size:13px;color:#94a3b8;margin-bottom:4px;}
+.bd-h-item .w{font-size:22px;font-weight:800;color:#fff;}
+.bd-h-item .u{font-size:13px;color:#94a3b8;font-weight:500;}
+.bd-h-item .delta{font-size:11px;display:inline-block;margin-top:6px;padding:2px 8px;border-radius:6px;}
+.bd-h-item .delta.up{background:rgba(124,240,169,.15);color:#7cf0a9;}
+.bd-h-item .delta.down{background:rgba(239,68,68,.15);color:#ef4444;}
+.bd-h-del{background:transparent;color:#ef4444;border:0;padding:8px;cursor:pointer;}
+
+/* v8.11: 添加身体数据表单（深色版 + 截图4 布局） */
+.bd-form-row{display:flex;align-items:center;gap:12px;padding:14px;background:#1e293b;border-radius:12px;margin-bottom:14px;}
+.bd-form-cell{flex:1;}
+.bd-form-cell .k{font-size:13px;color:#94a3b8;margin-bottom:4px;}
+.bd-form-cell .v input{padding:6px 0;width:100%;border:0;background:transparent;color:#e2e8f0;font-size:15px;font-weight:600;}
+.bd-icon{font-size:18px;}
+.bd-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.bd-form-item{background:#1e293b;border-radius:10px;padding:10px 12px;}
+.bd-form-item .bd-item-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.bd-form-item .bd-item-head .k{font-size:13px;color:#94a3b8;font-weight:500;}
+.bd-form-item input{width:100%;border:0;background:transparent;color:#e2e8f0;font-size:18px;font-weight:700;padding:4px 0;}
+.bd-form-item input:focus{outline:none;border-bottom:1px solid #7cf0a9;}
+.bd-form-item button.bd{font-size:18px;font-weight:700;color:#e2e8f0;padding:4px 0;width:100%;}
+
+/* v8.11: 身高选择器（截图3 大字号展示 + 滚轮） */
+.hw-display{position:relative;text-align:center;padding:30px 0 50px;}
+.hw-display::before,.hw-display::after{content:'';position:absolute;left:20%;right:20%;height:1px;background:#cbd5e1;}
+.hw-display::before{top:36px;}
+.hw-display::after{bottom:80px;}
+.hw-row{display:inline-flex;align-items:baseline;gap:8px;color:#1f2937;}
+.hw-val{font-size:56px;font-weight:800;color:#1f2937;line-height:1;}
+.hw-unit{font-size:20px;color:#64748b;font-weight:600;}
+.hw-wheel{height:200px;overflow-y:auto;scroll-snap-type:y mandatory;position:relative;}
+.hw-wheel::-webkit-scrollbar{display:none;}
+.hw-opt{height:44px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#94a3b8;scroll-snap-align:center;}
+.hw-opt.cur{color:#1f2937;font-weight:800;font-size:24px;}
+
+/* v8.11: 单日详情页（统计点击日期，复刻截图7） */
+.day-sheet{background:#fff;border-radius:18px 18px 0 0;max-height:75vh;overflow-y:auto;padding:18px 18px 80px;color:#0f172a;}
+.day-sheet .ds-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.day-sheet .ds-head h3{font-size:18px;font-weight:700;color:#0f172a;margin:0;}
+.day-sheet .ds-head .ds-pick{font-size:13px;color:#94a3b8;}
+.day-sheet .ds-state{font-size:12px;color:#94a3b8;margin-bottom:8px;}
+.day-sheet .ds-emojis{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.day-sheet .ds-emoji{width:48px;height:48px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;}
+.day-sheet .ds-emoji.active{background:#dbeafe;border:2px solid #3b82f6;}
+.day-sheet .ds-row{display:flex;align-items:center;padding:14px;border-radius:12px;margin-bottom:8px;background:#f8fafc;}
+.day-sheet .ds-row .ic{width:32px;height:32px;background:#dbeafe;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#3b82f6;margin-right:12px;font-weight:700;}
+.day-sheet .ds-row .txt{flex:1;}
+.day-sheet .ds-row .txt .t{font-size:15px;font-weight:600;color:#0f172a;}
+.day-sheet .ds-row .txt .s{font-size:12px;color:#94a3b8;margin-top:2px;}
+.day-sheet .ds-row.alt{background:#fff;border:1px dashed #cbd5e1;}
+.day-sheet .ds-row.alt .ic{background:transparent;border:1px dashed #94a3b8;color:#94a3b8;}
+
+/* v8.11: 快速记录页（复刻截图8） */
+.quick-sheet{background:#f1f5f9;border-radius:18px 18px 0 0;max-height:80vh;overflow-y:auto;padding:18px;}
+.quick-sheet .qs-head{display:flex;align-items:center;gap:14px;padding:8px 0 14px;}
+.quick-sheet .qs-back{font-size:22px;color:#1f2937;cursor:pointer;}
+.quick-sheet .qs-title{flex:1;text-align:center;font-size:16px;font-weight:600;color:#0f172a;}
+.quick-sheet .qs-card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px;}
+.quick-sheet .qs-empty{text-align:center;padding:40px 20px;}
+.quick-sheet .qs-empty .ic{width:80px;height:80px;background:#dbeafe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:14px;color:#3b82f6;}
+.quick-sheet .qs-empty .t{font-size:14px;color:#475569;font-weight:600;}
+.quick-sheet .qs-empty .s{font-size:12px;color:#94a3b8;margin-top:6px;}
+.quick-sheet .qs-actions{display:flex;gap:10px;padding:14px 4px 0;}
+.quick-sheet .qs-actions .qs-btn{flex:1;padding:14px;border-radius:14px;font-size:14px;font-weight:700;border:1px solid #3b82f6;color:#3b82f6;background:#fff;}
+.quick-sheet .qs-actions .qs-btn.primary{background:linear-gradient(135deg,#3b82f6,#f59e0b);color:#fff;border:0;}
+
+/* v8.11: 有氧记录页（复刻截图9） */
+.cardio-sheet{background:#f1f5f9;border-radius:18px 18px 0 0;max-height:80vh;overflow-y:auto;padding:18px;}
+.cardio-sheet .cs-head{display:flex;align-items:center;gap:14px;padding:8px 0 14px;}
+.cardio-sheet .cs-back{font-size:22px;color:#1f2937;cursor:pointer;}
+.cardio-sheet .cs-title{flex:1;text-align:center;font-size:16px;font-weight:600;color:#0f172a;}
+.cardio-sheet .cs-card{background:#fff;border-radius:14px;padding:18px;margin-bottom:12px;}
+.cardio-sheet .cs-card.big{text-align:center;padding:30px 18px;}
+.cardio-sheet .cs-card.big .ic{width:64px;height:64px;border-radius:50%;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center;color:#3b82f6;font-size:30px;margin-bottom:10px;}
+.cardio-sheet .cs-card.big .t{font-size:18px;font-weight:700;color:#0f172a;}
+.cardio-sheet .cs-card.big .s{font-size:12px;color:#94a3b8;margin-top:4px;}
+.cardio-sheet .cs-time{display:flex;gap:10px;margin-bottom:12px;}
+.cardio-sheet .cs-time-card{flex:1;background:#fff;border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px;}
+.cardio-sheet .cs-time-card .ic{font-size:20px;color:#3b82f6;}
+.cardio-sheet .cs-time-card .k{font-size:12px;color:#94a3b8;}
+.cardio-sheet .cs-time-card .v{font-size:16px;font-weight:700;color:#3b82f6;}
+.cardio-sheet .cs-submit{width:100%;padding:16px;border:0;border-radius:18px;background:linear-gradient(135deg,#3b82f6,#f59e0b);color:#fff;font-size:15px;font-weight:700;margin-top:8px;}
+
+/* v8.11: 全屏 sheet（统计点击日期/快速记录/有氧记录） */
+#sheet.fullscreen-sheet{
+  position:fixed;left:0;right:0;bottom:0;top:8vh;background:transparent;
+  box-shadow:none;border-radius:0;padding:0;max-height:92vh;overflow:hidden;
+  animation:sheet-up .25s ease;
+}
+@keyframes sheet-up{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+#sheet.fullscreen-sheet.hidden{display:none;}
+
+/* v8.11: 快速记录页（复刻截图8） */
+.quick-sheet .qs-time-pill{background:#dbeafe;color:#3b82f6;border-radius:14px;padding:4px 10px;font-size:11px;font-weight:700;}
+.quick-sheet .qs-back::before{content:'‹';font-size:24px;color:#1f2937;}
+.qs-time-pill.active{background:#2563eb;color:#fff;}
+.detail-head{display:flex;align-items:center;gap:12px;background:#131c31;border:1px solid #26314d;border-radius:14px;padding:12px 14px;margin:4px 0 14px;position:relative;}
+.detail-head .back-btn{flex:0 0 auto !important;z-index:2;display:flex;align-items:center;gap:4px;padding:8px 14px !important;border-radius:20px !important;background:#1a2540 !important;border:1px solid #475569 !important;color:#7cf0a9 !important;font-size:14px !important;font-weight:700 !important;cursor:pointer;}
+.detail-head .dh-info{flex:1;padding-left:4px;}
+.detail-head .dh-name{font-size:16px;font-weight:800;color:#e2e8f0;}
+.detail-head .dh-sub{font-size:11px;color:#8fa3bf;margin-top:2px;}
+
+/* v8.11: 全屏 sheet（统计点击日期/快速记录/有氧记录） */
+#sheet.fullscreen-sheet{position:fixed;left:0;right:0;bottom:0;top:8vh;background:transparent;box-shadow:none;border-radius:0;padding:0;max-height:92vh;overflow:hidden;animation:sheet-up .25s ease;}
+@keyframes sheet-up{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+#sheet.fullscreen-sheet.hidden{display:none;}
+.quick-sheet .qs-time-pill{background:#dbeafe;color:#3b82f6;border-radius:14px;padding:4px 10px;font-size:11px;font-weight:700;display:inline-block;cursor:pointer;}
+.quick-sheet .qs-time-pill.active{background:#2563eb;color:#fff;}
