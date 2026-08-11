@@ -425,6 +425,8 @@ function renderMain(container){
   var cr = computeFFMI();
   var ffmiTxt = cr ? 'FFMI：'+cr.ffmi.toFixed(1) : 'FFMI：--';
   var dbg = (root.debuffs||[]).map(function(d){ return '<span class="debuff-tag">'+d.name+'</span>'; }).join('');
+  /* v8.5: 兼容 state.settings.restSec（防御 undefined） */
+  var restSecVal = (state.settings && state.settings.restSec) ? state.settings.restSec : 60;
 
   /* === 增强版身体数据（多围度 + 自动算 BMI/LBM/FFMI/预估体脂率） === */
   var p = getProfile();
@@ -510,12 +512,23 @@ function renderMain(container){
       /* ⑥ 系统说明 */
       '<div class="sec-title">📖 系统说明</div>'+
       '<div class="help-card">'+CONFIG.HELP.replace(/\n/g,'<br>')+'</div>'+
-      /* ⑦ 必要功能操作（置底） */
+      /* ⑦ 必要功能操作（置底：融合原"我的"页所有功能 v8.5） */
       '<div class="sec-title">⚙️ 必要功能</div>'+
       '<div class="action-grid">'+
         '<button class="action-btn primary" data-act="editBody">✏️ 修改身体数据</button>'+
         '<button class="action-btn gold" data-act="syncAll">🔄 同步训练修为</button>'+
+        '<button class="action-btn ghost" data-act="openAIReport">✨ AI分析</button>'+
+        '<button class="action-btn ghost" data-act="openBodyData">📊 体测记录</button>'+
+        '<button class="action-btn ghost" data-act="openMyStatus">💗 状态记录</button>'+
+        '<button class="action-btn ghost" data-act="exportData">📤 导出数据</button>'+
+        '<button class="action-btn ghost" data-act="gotoLibrary">📚 我的动作</button>'+
+        '<button class="action-btn ghost" data-act="setRest">⚙️ 训练设置（休息'+restSecVal+'s）</button>'+
+        '<button class="action-btn ghost" data-act="openPerms">🔐 权限说明</button>'+
+        '<button class="action-btn ghost" data-act="openAbout">ℹ️ 关于我们</button>'+
+        '<button class="action-btn ghost" data-act="openFeedback">💬 意见反馈</button>'+
+        '<button class="action-btn ghost" data-act="openPrivacy">🛡️ 隐私协议</button>'+
         '<button class="action-btn ghost" data-act="openHelp">📖 系统说明</button>'+
+        '<button class="action-btn danger" data-act="clearAll">🗑️ 清空所有数据</button>'+
         '<div class="action-row"><span style="font-size:12px;color:#8fa3bf;">✨ 粒子动画</span>'+
           '<label class="switch"><input type="checkbox" id="xianFxSwitch" '+(fxEnabled?'checked':'')+'><span class="sl"></span></label></div>'+
       '</div>'+
@@ -676,21 +689,30 @@ function bindEvents(container){
     var act = e.target.closest('[data-act]');
     var daoEl = e.target.closest('[data-dao]');
     var mainEl = e.target.closest('[data-main]');
-    if(act && act.dataset.act === 'editBody'){ openBodyEditor(container); return; }
-    if(act && act.dataset.act === 'backOverview'){ renderMain(container); return; }
-    if(act && act.dataset.act === 'syncAll'){
+    /* v8.5: 原"我的"页所有 data-act（openAIReport/exportData/gotoLibrary/setRest/...
+       clearAll 等）由 app.js 的 document click 监听器统一处理；
+       这里**不阻止冒泡**，事件自然冒泡到 document，app.js 接住 */
+    var handledHere = false;
+    if(act && act.dataset.act === 'editBody'){ openBodyEditor(container); handledHere=true; }
+    else if(act && act.dataset.act === 'backOverview'){ renderMain(container); handledHere=true; }
+    else if(act && act.dataset.act === 'syncAll'){
       /* 手动同步修为 */
       var pending = (state.workouts||[]).filter(function(w){return !w.cultivationSettled;});
-      if(!pending.length){ toastQ(CONFIG.TOAST.noNew); return; }
-      var r = API.autoSettle(false);
-      toastQ(r.settled>0?CONFIG.TOAST.syncDone:CONFIG.TOAST.noNew);
-      if(container) renderMain(container);
-      return;
+      if(!pending.length){ toastQ(CONFIG.TOAST.noNew); }
+      else {
+        var r = API.autoSettle(false);
+        toastQ(r.settled>0?CONFIG.TOAST.syncDone:CONFIG.TOAST.noNew);
+        if(container) renderMain(container);
+      }
+      handledHere = true;
     }
-    if(act && act.dataset.act === 'openHelp'){
+    else if(act && act.dataset.act === 'openHelp'){
       openHelpSheet(container);
-      return;
+      handledHere = true;
     }
+    /* handledHere 的 act 阻止冒泡（避免重复触发 app.js 同名 handler），
+       其他 act（passthrough）放行冒泡 */
+    if(handledHere){ e.stopPropagation(); return; }
     if(daoEl){
       var dk = daoEl.dataset.dao;
       if(daoEl.classList.contains('dao-module')){ renderDaoDetail(container, dk); return; }
@@ -795,6 +817,7 @@ function injectStyle(){
     '.action-btn.primary{background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;}',
     '.action-btn.gold{background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;}',
     '.action-btn.ghost{background:#1a2540;color:#e2e8f0;border:1px solid #26314d;}',
+    '.action-btn.danger{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid #7f1d1d;}',
     '.action-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#131c31;border-radius:12px;border:1px solid #26314d;}',
     '.bd-cell{background:#1a2540;border-radius:10px;padding:8px;text-align:center;}',
     '.bd-cell .k{font-size:10px;color:var(--muted,#8fa3bf);}',
