@@ -357,7 +357,16 @@ function saveCreateEx(){
 function renderWorkoutList(){
   const list = $('#workout-list');
   if(!session) return;
+  /* v8.9: 超级组并排展示 - 跳过作为"配对右边"的项（i 是 i-1 的 supersetWith）*/
+  const skipIdx = new Set();
+  session.items.forEach((it, i)=>{
+    if(it.supersetWith !== null && it.supersetWith !== undefined && it.supersetWith < i){
+      skipIdx.add(i);
+    }
+  });
   list.innerHTML = session.items.map((it,i)=>{
+    if(skipIdx.has(i)) return ''; // 跳过超级组配对的右侧
+    const isLeftOfPair = (it.supersetWith !== null && it.supersetWith !== undefined && it.supersetWith > i);
     const last = lastSetsForEx(it.exId);
     const sugg = suggestForEx(it.exId);
     const unit = it.lb ? 'LB' : 'KG';
@@ -399,35 +408,82 @@ function renderWorkoutList(){
     }).join('');
     const exObj = resolveEx(it.exId) || it;
     const collapsedCls = (state.collapsedEx && state.collapsedEx[it.exId]) ? ' collapsed' : '';
-    return `
-      <div class="ex-card ${(it.supersetWith!==null&&it.supersetWith!==undefined)?'superset-card':''}${collapsedCls}" data-ex="${i}" data-ex-id="${escapeHtml(it.exId)}">
-        <div class="ex-head">
-          <div class="ex-thumb" style="background:#f3f6fb;overflow:hidden;padding:0;">${exImgHTML(exObj)}</div>
-          <div class="ex-info">
-            <div class="ex-name">${escapeHtml(it.name)}${supTag}</div>
-            <div class="ex-meta">${it.part} · ${it.equip}${restTag}</div>
+    const cardHTML = renderSingleExCard({
+      it, exObj, i, unit, conv, last, sugg, collapsedCls,
+      supTag, restTag, notesTag, refHtml, suggHtml, rows
+    });
+    if(isLeftOfPair){
+      const j = it.supersetWith;
+      const it2 = session.items[j];
+      const ex2 = resolveEx(it2.exId) || it2;
+      const last2 = lastSetsForEx(it2.exId);
+      const sugg2 = suggestForEx(it2.exId);
+      const conv2 = w => it2.lb ? (w/0.4536).toFixed(1) : w;
+      const rows2 = it2.sets.map((s,k)=>{
+        const refSet = last2 && last2.sets[k];
+        const wTxt = (+s.weight>0) ? conv2(s.weight) : (refSet?conv2(refSet.weight):'0');
+        const rTxt = (+s.reps>0) ? s.reps : (refSet?refSet.reps:'0');
+        return `
+        <div class="set-swipe">
+          <div class="set-actions">
+            <button class="sa-copy" data-act="setCopyDown" data-ex="${j}" data-set="${k}">复制</button>
+            <button class="sa-warm" data-act="setWarmup" data-ex="${j}" data-set="${k}">${s.warmup?'取消热身':'热身组'}</button>
+            <button class="sa-del" data-act="setDelConfirm" data-ex="${j}" data-set="${k}">删除</button>
           </div>
-          <button class="set-done-btn" data-act="exMenu" data-ex="${i}" title="动作设置" style="color:var(--accent);border-color:var(--accent-light);background:var(--accent-light);">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82.33l.06.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </button>
-        </div>
-        ${(()=>{
-          const done = it.sets.filter(s=>s.done).length;
-          const total = it.sets.length;
-          const pct = total ? Math.round(done/total*100) : 0;
-          return `<div class="ex-progress">
-            <div class="ex-progress-bar"><div class="ex-progress-bar-fill" style="width:${pct}%"></div></div>
-            <span class="ex-progress-text">${done}/${total}</span>
-          </div>`;
-        })()}
-        ${refHtml}${suggHtml}${notesTag}
-        <div class="sets-head"><span>组</span><span>${unit}</span><span>次</span><span>RPE</span><span>完成</span><span></span></div>
-        ${rows}
-        <button class="add-set-btn" data-act="addSet" data-ex="${i}">+ 添加一组</button>
-      </div>`;
+          <div class="set-row ${s.warmup?'warmup-row':''}">
+            <span class="set-no">${k+1}${s.warmup?'<span class="wu">热身</span>':''}</span>
+            <button class="set-val" data-act="wheelW" data-ex="${j}" data-set="${k}">${wTxt}</button>
+            <button class="set-val" data-act="wheelR" data-ex="${j}" data-set="${k}">${rTxt}</button>
+            <button class="rpe-btn" data-act="rpeOpen" data-ex="${j}" data-set="${k}">${s.rpe||'—'}</button>
+            <button class="set-done-btn ${s.done?'completed':''}" data-act="doneSet" data-ex="${j}" data-set="${k}">✓</button>
+            <button class="set-act-btn" data-act="setMenu" data-ex="${j}" data-set="${k}">⋮</button>
+          </div>
+        </div>`;
+      }).join('');
+      const card2HTML = renderSingleExCard({
+        it: it2, exObj: ex2, i: j, unit: it2.lb?'LB':'KG',
+        conv: conv2, last: last2, sugg: sugg2,
+        collapsedCls: (state.collapsedEx && state.collapsedEx[it2.exId]) ? ' collapsed' : '',
+        supTag: '<span class="tag warn" style="margin-left:4px;font-size:10px;">超级组</span>',
+        restTag: it2.restSec>0 ? '<span class="tag grey" style="margin-left:4px;">休息'+it2.restSec+'s</span>' : '',
+        notesTag: it2.notes ? '<div style="font-size:11px;color:var(--accent);padding:2px 0 4px 4px;">📝 '+escapeHtml(it2.notes)+'</div>' : '',
+        refHtml: last2 ? '<div class="prev-ref">上次（'+fmtMD(last2.date)+'）：'+last2.sets.map(s=>conv2(s.weight)+'×'+s.reps).join(' / ')+'<button class="fill-last" data-act="fillLast" data-ex="'+j+'">填入上次</button></div>' : '',
+        suggHtml: sugg2 ? '<div class="sugg-row">⚡ 自动进阶：'+conv2(sugg2.weight)+(it2.lb?'LB':'KG')+' × '+sugg2.reps+'（'+sugg2.reason+'）<button data-act="applySugg" data-ex="'+j+'">应用</button></div>' : '',
+        rows: rows2,
+        compact: true
+      });
+      return '<div class="superset-pair" data-pair="'+i+'-'+j+'">'+cardHTML+card2HTML+'</div>';
+    }
+    return cardHTML;
   }).join('');
   // 重新绑定折叠 / 长按拖动
   setTimeout(bindWorkoutListUI, 0);
+}
+
+/* v8.9: 单卡片渲染辅助函数（供单卡 + 超级组配对复用） */
+function renderSingleExCard(o){
+  const it = o.it, exObj = o.exObj, i = o.i, unit = o.unit, collapsedCls = o.collapsedCls||'';
+  const supTag = o.supTag||'', restTag = o.restTag||'', notesTag = o.notesTag||'';
+  const refHtml = o.refHtml||'', suggHtml = o.suggHtml||'', rows = o.rows||'', compact = !!o.compact;
+  const isSup = it.supersetWith!==null && it.supersetWith!==undefined;
+  const innerHead =
+    '<div class="ex-thumb" style="background:#f3f6fb;overflow:hidden;padding:0;">' + exImgHTML(exObj) + '</div>' +
+    '<div class="ex-info">' +
+      '<div class="ex-name">' + escapeHtml(it.name) + supTag + '</div>' +
+      '<div class="ex-meta">' + it.part + ' · ' + it.equip + restTag + '</div>' +
+    '</div>' +
+    '<button class="set-done-btn" data-act="exMenu" data-ex="' + i + '" title="动作设置" style="color:var(--accent);border-color:var(--accent-light);background:var(--accent-light);">' +
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+    '</button>';
+  const progress = (()=>{
+    const done = it.sets.filter(s=>s.done).length;
+    const total = it.sets.length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    return '<div class="ex-progress"><div class="ex-progress-bar"><div class="ex-progress-bar-fill" style="width:'+pct+'%"></div></div><span class="ex-progress-text">'+done+'/'+total+'</span></div>';
+  })();
+  const setsHead = compact ? '' : '<div class="sets-head"><span>组</span><span>'+unit+'</span><span>次</span><span>RPE</span><span>完成</span><span></span></div>';
+  const addBtn = compact ? '' : '<button class="add-set-btn" data-act="addSet" data-ex="'+i+'">+ 添加一组</button>';
+  return '<div class="ex-card '+(isSup?'superset-card':'')+collapsedCls+' '+(compact?'superset-card-compact':'')+'" data-ex="'+i+'" data-ex-id="'+escapeHtml(it.exId)+'"><div class="ex-head">'+innerHead+'</div>'+progress+refHtml+suggHtml+notesTag+setsHead+rows+addBtn+'</div>';
 }
 
 /* ---------- 滚轮选择器 ---------- */
@@ -2857,29 +2913,20 @@ render = function(){
 })();
 
 /* ============================================================
-   v8.7 全局错误探针（2026-08-11）—— iOS Safari 白屏诊断
-   捕获任意 JS 错误并显示在页顶，方便用户截图反馈
+   v8.9 全局错误探针（仅 console 记录，不渲染到页面——避免用户看到的"乱码"）
    ============================================================ */
 (function(){
-  function showError(msg, file, line, col){
-    try{
-      var box = document.getElementById('err-probe');
-      if(!box){
-        box = document.createElement('div');
-        box.id = 'err-probe';
-        box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ef4444;color:#fff;padding:10px 12px;font-size:12px;font-family:monospace;line-height:1.4;max-height:50vh;overflow:auto;word-break:break-all;';
-        document.body.appendChild(box);
-      }
-      var f = (file||'').split('/').pop();
-      box.innerHTML += '<div style="margin:4px 0;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;">⚠️ <b>'+msg+'</b><br>'+f+':'+line+':'+col+'</div>';
-    }catch(e){}
-  }
   window.addEventListener('error', function(ev){
-    showError(ev.message||'JS Error', ev.filename, ev.lineno, ev.colno);
+    try{
+      var f = (ev.filename||'').split('/').pop();
+      console.error('[FitRecord Error]', ev.message||'JS Error', f+':'+ev.lineno+':'+ev.colno);
+    }catch(_){}
   });
   window.addEventListener('unhandledrejection', function(ev){
-    var r = ev.reason;
-    showError('Unhandled Promise: '+(r && r.message || r || 'unknown'), '', 0, 0);
+    try{
+      var r = ev.reason;
+      console.error('[FitRecord Promise]', r && r.message || r || 'unknown');
+    }catch(_){}
   });
 })();
 
