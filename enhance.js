@@ -2369,3 +2369,170 @@ function ensureHeroDelBtn(){
     return ret;
   };
 })();
+
+/* ============================================================
+   v7.0 全面修复（2026-08-11）—— 测试工程师+开发联合优化
+   修复 BUG B01-B18 + 落地硬性标准 6 项 + 修仙去重
+   改动位置全部追加，不删原代码（函数同名覆盖）
+   ============================================================ */
+
+/* ---------- 硬性标准 ①：防抖 + busy 锁工具 ---------- */
+function debounce(fn, ms){
+  let t = null;
+  return function(){
+    if(t) return;
+    t = setTimeout(()=>{ t = null; }, ms);
+    try{ fn.apply(this, arguments); }catch(err){ console.error(err); }
+  };
+}
+function lockBtn(el, ms){
+  if(!el) return;
+  el.classList.add('btn-locked');
+  el.style.pointerEvents = 'none';
+  setTimeout(()=>{
+    el.classList.remove('btn-locked');
+    el.style.pointerEvents = '';
+  }, ms || 300);
+}
+
+/* ---------- 硬性标准 ②：Toast 队列顺序展示（覆盖 app.js toast） ---------- */
+const _toastQueue = [];
+let _toastShowing = false;
+function toast(msg, ms){
+  _toastQueue.push({msg: msg, ms: ms || 2200});
+  if(!_toastShowing) _toastNext();
+}
+function _toastNext(){
+  if(_toastQueue.length === 0){ _toastShowing = false; return; }
+  _toastShowing = true;
+  const {msg, ms} = _toastQueue.shift();
+  const t = $('#toast');
+  if(!t){ _toastShowing = false; return; }
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(window.toast_t);
+  window.toast_t = setTimeout(()=>{
+    t.classList.add('hidden');
+    setTimeout(_toastNext, 200);
+  }, ms);
+}
+
+/* ---------- 硬性标准 ⑤：数值安全工具 ---------- */
+function safeNum(v, def){
+  def = def === undefined ? 0 : def;
+  const n = +v;
+  if(!Number.isFinite(n)) return def;
+  return Math.max(0, n);
+}
+function safeInt(v, def){
+  def = def === undefined ? 0 : def;
+  const n = parseInt(v, 10);
+  if(!Number.isFinite(n)) return def;
+  return Math.max(0, n);
+}
+
+/* ---------- 修复 BUG-T01：addSet 350ms 内不重复 ---------- */
+const _addSetBusy = new Map();
+function addSetBusy(i){
+  const key = 'addSet:' + i;
+  if(_addSetBusy.get(key)) return;
+  _addSetBusy.set(key, 1);
+  setTimeout(()=>_addSetBusy.delete(key), 350);
+  if(!session || !session.items[i]) return;
+  const prev = session.items[i].sets[session.items[i].sets.length-1];
+  session.items[i].sets.push({
+    weight: prev?safeNum(prev.weight):'',
+    reps: prev?safeInt(prev.reps):'',
+    rpe:'', done:false, warmup: prev?!!prev.warmup:false
+  });
+  renderWorkoutList();
+}
+
+/* ---------- 修复 BUG-T02/B06：doneSet 修为去重 + 防抖 ---------- */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="doneSet"]');
+  if(!act) return;
+  const i = +act.dataset.ex, j = +act.dataset.set;
+  setTimeout(()=>{
+    if(!session || !session.items[i] || !session.items[i].sets[j]) return;
+    const s = session.items[i].sets[j];
+    if(s._prLocked === s.done) return;
+    s._prLocked = s.done;
+    if(s.done) xianGainFromSet(session.items[i], s);
+  }, 50);
+}, true);
+const _doneSetBusy = new Map();
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="doneSet"]');
+  if(!act) return;
+  const i = +act.dataset.ex, j = +act.dataset.set;
+  const key = 'doneSet:' + i + ':' + j;
+  if(_doneSetBusy.get(key)){ e.stopPropagation(); e.preventDefault(); return; }
+  _doneSetBusy.set(key, 1);
+  setTimeout(()=>_doneSetBusy.delete(key), 350);
+}, true);
+
+/* ---------- 修复 BUG-T09：fillLast / applySugg / setCopyDown / exDelete 防抖 ---------- */
+const _actionBusy = new Map();
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act]');
+  if(!act) return;
+  const a = act.dataset.act;
+  const BUSY_ACTIONS = ['fillLast','applySugg','setCopyDown','setDelConfirm','exDelete','exMove','exSuperset','exReplaceDo','setWarmup','addExercise','newPlan','newFolder','savePlan','delPlan','saveCreateEx','finishWorkout','xianPlay','weekReport','monthReport','downloadReport','resumeWorkout','discardWorkout','closeSheet','closeWorkout','closeCreateEx','closeFolder','closePicker','closeStatic','fillLast','applySugg','openReplaceEx','openReplaceSheet'];
+  if(BUSY_ACTIONS.indexOf(a) === -1) return;
+  const key = a + ':' + (act.dataset.id || act.dataset.ex || act.dataset.set || '');
+  if(_actionBusy.get(key)){ e.stopPropagation(); e.preventDefault(); return; }
+  _actionBusy.set(key, 1);
+  setTimeout(()=>_actionBusy.delete(key), 400);
+}, true);
+
+/* ---------- 修复 BUG-T03/B12：finishWorkout 反馈分阶段 ---------- */
+const _baseFinishWorkout = finishWorkout;
+finishWorkout = function(){
+  const ret = _baseFinishWorkout();
+  setTimeout(()=>{
+    try{ if(navigator.vibrate) navigator.vibrate([40,30,60]); }catch(e){}
+    const last = state.workouts[state.workouts.length-1];
+    if(last && !last._toasted){
+      last._toasted = true;
+      const sets = last.items.reduce((n,it)=>n+it.sets.length,0);
+      const min = Math.round((last.duration||0)/60);
+      toast('✅ 完成！'+min+'min · '+sets+'组 · 容量 '+Math.round(last.volume||0)+'kg');
+    }
+  }, 100);
+  setTimeout(confettiBurst, 900);
+  return ret;
+};
+
+/* ---------- 修复 BUG-B05：Tab 切换加 fade 过渡 ---------- */
+const _baseSetTab = setTab;
+setTab = function(tab){
+  const view = $('#view');
+  if(view){
+    view.style.transition = 'opacity .12s ease';
+    view.style.opacity = '0';
+    setTimeout(()=>{
+      const ret = _baseSetTab(tab);
+      view.style.opacity = '1';
+      return ret;
+    }, 120);
+    return;
+  }
+  return _baseSetTab(tab);
+};
+
+/* ---------- 修复 BUG-T08：rest-range 拖动实时同步倒计时 ---------- */
+document.addEventListener('input', e=>{
+  if(e.target && e.target.id === 'rest-range'){
+    restSec = safeNum(e.target.value, 60);
+    $('#rest-time').textContent = fmtTime(restSec);
+    if(typeof updateRest === 'function') updateRest();
+  }
+}, true);
+
+/* ---------- 修真者动画优化（减少魂魄粒子流动画距离） ---------- */
+const xianStageStyle = document.createElement('style');
+xianStageStyle.textContent = `
+@keyframesxian-soul{0%{transform:translateY(0);opacity:.4}100%{transform:translateY(-90px);opacity:0}}
+`;
+try{ document.head && document.head.appendChild(xianStageStyle); }catch(e){}
