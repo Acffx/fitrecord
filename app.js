@@ -1833,7 +1833,7 @@ document.addEventListener('click', e=>{
   if(a==='openAIReport'){ openAIReport(); return; }
   if(a==='openPerms'){ openStaticSheet('权限说明','FitRecord 为纯本地应用：<br><br>· 所有训练与身体数据仅存储在您设备的浏览器本地存储中<br>· 不需要网络权限即可完整使用（离线可用）<br>· 不访问相册、位置、通讯录等任何系统权限<br>· 建议定期使用「导出数据」备份'); return; }
   if(a==='openAbout'){ openStaticSheet('关于我们','FitRecord 网页版 v3.0<br><br>一款专注力量训练记录的轻量工具：训练计划、RPE 强度管理、自动进阶建议、PR 纪录追踪、身体数据管理。<br><br>练得明白，进步看得见。'); return; }
-  if(a==='openFeedback'){ openStaticSheet('意见反馈','使用中遇到问题或有功能建议？<br><br>· 直接在对话中告诉我即可<br>· 常见问题：若页面显示异常，可尝试下拉刷新或清除浏览器缓存<br><br>感谢反馈，让 FitRecord 变得更好。'); return; }
+  if(a==='openFeedback'){ openStaticSheet('意见反馈','使用中遇到问题或有功能建议？<br><br>· 直接在对话中告诉我即可<br>· 常见问题：若页面显示异常，可尝试下拉刷新或清除浏览器缓存<br><br>📱 微信：<b style="color:#7cf0a9;font-size:18px;">hs468564247</b><br><small style="color:#94a3b8;">（搜索或长按复制均可，长期接收反馈与建议）</small><br><br>感谢反馈，让 FitRecord 变得更好。'); return; }
   if(a==='openPrivacy'){ openStaticSheet('隐私协议','1. 本应用不收集、上传任何个人数据<br>2. 训练记录、身体数据均保存在本机浏览器 localStorage<br>3. 清除浏览器数据会导致记录丢失，请定期导出备份<br>4. 不接入第三方统计或广告 SDK'); return; }
   if(a==='exportData'){ exportCSV(); return; }
   if(a==='clearAll'){
