@@ -163,4 +163,70 @@
 .set-act-btn{width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#c3cad4;
   font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .ex-thumb{border-radius:12px;}
+
+/* ============================================================
+   v5 增量样式：后台训练 · 折叠 · 拖动 · 网格缩略 · 训练中卡
+   ============================================================ */
+
+/* 倒计时字号自适应（避免 "00:00:4?" 溢出截断） */
+.rest-inner{padding:0 14px;max-width:100%;box-sizing:border-box;}
+.rest-time{font-size:clamp(48px,16vw,84px);font-weight:800;font-variant-numeric:tabular-nums;
+  letter-spacing:1px;line-height:1;display:inline-block;max-width:100%;overflow:hidden;
+  white-space:nowrap;text-overflow:clip;}
+
+/* Sheet 上方空白点击关闭 */
+#overlay{cursor:pointer;}
+#overlay > .sheet{cursor:auto;}
+
+/* 主页：训练计划自适应缩略网格 */
+.plans-folders{display:grid;gap:10px;margin-bottom:8px;}
+.plans-folders.cols-1{grid-template-columns:1fr;}
+.plans-folders.cols-2{grid-template-columns:1fr 1fr;}
+.plans-folders.cols-many{grid-template-columns:1fr 1fr 1fr;}
+.plans-folders .folder-card{margin-bottom:0;}
+.plans-folders.cols-2 .folder-grid{height:96px;}
+.plans-folders.cols-many .folder-grid{height:80px;}
+.plans-folders.cols-2 .folder-card{padding:10px;}
+.plans-folders.cols-many .folder-card{padding:8px;}
+.plans-folders.cols-2 .folder-name{font-size:13px;}
+.plans-folders.cols-many .folder-name{font-size:12px;}
+.plans-folders.cols-many .folder-count{font-size:10px;padding:2px 7px;}
+.plans-folders.cols-many .plan-edit-btn{width:24px;height:24px;top:6px;right:6px;}
+.plans-folders .folder-card.is-cur{box-shadow:0 0 0 2px var(--accent),var(--shadow);}
+
+/* 主页：训练中缩略卡 */
+.mini-active{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border-radius:14px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:10px;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.28);-webkit-tap-highlight-color:transparent;}
+.mini-active:active{transform:scale(.99);}
+.mini-active-ic{width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.18);overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.mini-active-ic img{width:100%;height:100%;object-fit:cover;}
+.mini-active-info{flex:1;min-width:0;}
+.mini-active-title{font-size:13px;font-weight:700;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mini-active-meta{font-size:11px;opacity:.85;margin-top:2px;}
+.mini-active-del{width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,.95);color:#fff;border:0;display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 auto;}
+.mini-active-del:active{background:#dc2626;}
+
+/* 动作卡：单击折叠 / 长按拖动 */
+.ex-card .ex-head{-webkit-tap-highlight-color:transparent;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.ex-card .ex-head::after{content:'▾';color:var(--muted);font-size:14px;margin-left:6px;transition:transform .2s ease;display:inline-block;}
+.ex-card.collapsed .ex-head::after{transform:rotate(-90deg);}
+.ex-card.collapsed .sets-head,
+.ex-card.collapsed .set-swipe,
+.ex-card.collapsed .add-set-btn,
+.ex-card.collapsed .prev-ref,
+.ex-card.collapsed .sugg-row,
+.ex-card.collapsed .notes-row{display:none;}
+.ex-card.collapsed .ex-head{margin-bottom:0;}
+.ex-card.dragging{box-shadow:0 10px 30px rgba(0,0,0,.25);transition:none!important;}
+.ex-card-placeholder{background:#eef2ff;border:2px dashed var(--accent);border-radius:18px;margin-bottom:12px;}
+
+/* 超级组视觉合并 */
+.ex-card.superset-card{margin-bottom:4px;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:2px dashed #a78bfa;position:relative;}
+.ex-card.superset-card + .ex-card.superset-card{margin-top:-2px;border-top-left-radius:0;border-top-right-radius:0;padding-top:18px;}
+.ex-card.superset-card + .ex-card.superset-card::before{content:'⚡ 超级组';position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#a78bfa,#ec4899);color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:10px;z-index:5;white-space:nowrap;box-shadow:0 2px 6px rgba(167,139,250,.4);}
+
+/* 完成度进度条 */
+.ex-progress{display:flex;align-items:center;gap:6px;margin:6px 0 8px;}
+.ex-progress-bar{flex:1;height:4px;background:#f3f4f6;border-radius:2px;overflow:hidden;}
+.ex-progress-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .25s ease;}
+.ex-progress-text{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
 .create-upload .cam svg{display:block;}
