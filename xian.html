@@ -3,42 +3,51 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#0f172a" />
+<meta name="theme-color" content="#0b1120" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="健体修仙录" />
 <title>健体修仙录</title>
 <style>
 /* ============================================================
-   健体修仙录 · 独立页样式（核心逻辑在 xian-core.js）
-   © 2026 Acffx · 原创 · 保留所有权利
+   健体修仙录 · 独立页（核心逻辑在 xian-core.js）
+   底部 tabbar 可随时切回 FitRecord 主页
+   © 2026 Acffx
    ============================================================ */
 :root{
   --bg:#0b1120;--card:#131c31;--card2:#1a2540;--line:#26314d;
-  --text:#e2e8f0;--muted:#8fa3bf;--gold:#fbbf24;--pink:#ec4899;
+  --text:#e2e8f0;--muted:#8fa3bf;--gold:#fbbf24;
   --safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
   --dao:#7cf0a9;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{margin:0;padding:0;overflow-x:hidden;max-width:100vw;}
+html,body{margin:0;padding:0;overflow-x:hidden;max-width:100vw;background:#0b1120;}
 body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
-  background:var(--bg);color:var(--text);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;}
-#app{max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;padding-bottom:calc(80px + var(--safe-b));}
+  color:var(--text);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;}
+#app{max-width:430px;margin:0 auto;min-height:100vh;background:#0b1120;position:relative;padding-bottom:calc(78px + var(--safe-b));}
 button{font-family:inherit;cursor:pointer;}
 
 /* 顶栏 */
-.topbar{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0b1120 60%,rgba(11,17,32,.92));
-  padding:calc(var(--safe-t) + 12px) 16px 10px;backdrop-filter:blur(8px);}
-.topbar-title{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:800;letter-spacing:1px;}
-.topbar-title .back{width:32px;height:32px;border-radius:50%;background:#1a2540;border:0;color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;}
-/* 底部同步栏 */
-.footer-bar{position:fixed;left:0;right:0;bottom:0;max-width:430px;margin:0 auto;z-index:30;
-  background:rgba(11,17,32,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);
-  padding:10px 12px calc(10px + var(--safe-b));}
-.footer-bar .btn{width:100%;border:0;border-radius:12px;padding:13px;font-size:14px;font-weight:700;
-  background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;}
+.topbar{position:sticky;top:0;z-index:30;background:#0d1526;
+  padding:calc(var(--safe-t) + 10px) 14px 10px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;}
+.topbar .back{width:30px;height:30px;border-radius:50%;background:#1a2540;border:0;color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;}
+.topbar .ttl{flex:1;font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:1px;}
+.topbar .sync-btn{border:0;background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;border-radius:18px;padding:6px 14px;font-size:12px;font-weight:700;}
 
-/* Toast / 特效 / 弹窗（供 core 使用） */
+/* 底部 tabbar（独立页保留页面选择） */
+#tabbar{position:fixed;left:0;right:0;bottom:0;max-width:430px;margin:0 auto;z-index:30;
+  background:rgba(11,17,32,.97);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);
+  padding:8px 0 calc(8px + var(--safe-b));
+  display:flex;}
+.tab-link{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 0;color:#8fa3bf;text-decoration:none;font-size:11px;border:0;background:transparent;}
+.tab-link.active{color:#fbbf24;}
+.tab-link .ic{font-size:22px;line-height:1;}
+.tab-link .lb{font-size:11px;}
+
+/* Toast / 弹窗 / 特效 */
 #toast{position:fixed;left:50%;bottom:calc(100px + var(--safe-b));transform:translateX(-50%);
   z-index:999;background:rgba(17,24,39,.95);color:#fff;padding:11px 20px;border-radius:22px;
   font-size:13px;font-weight:500;max-width:84vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4);
@@ -78,28 +87,55 @@ button{font-family:inherit;cursor:pointer;}
 <body>
 <div id="app">
   <div class="topbar">
-    <div class="topbar-title">
-      <button class="back" id="btnBack">‹</button>
-      <span>🏯 健体修仙录</span>
-    </div>
+    <button class="back" id="btnBack" aria-label="返回">‹</button>
+    <span class="ttl">🏯 健体修仙录</span>
+    <button class="sync-btn" id="btnSync">🔄 同步</button>
   </div>
   <div id="view"></div>
 </div>
-<div class="footer-bar"><button class="btn" id="btnSync">🔄 同步训练修为</button></div>
+
+<nav id="tabbar">
+  <a class="tab-link" data-tab="train" href="index.html#train">
+    <span class="ic">📊</span><span class="lb">训练</span>
+  </a>
+  <a class="tab-link" data-tab="library" href="index.html#library">
+    <span class="ic">📚</span><span class="lb">动作库</span>
+  </a>
+  <a class="tab-link" data-tab="stats" href="index.html#stats">
+    <span class="ic">📈</span><span class="lb">统计</span>
+  </a>
+  <a class="tab-link" data-tab="me" href="index.html#me">
+    <span class="ic">👤</span><span class="lb">我的</span>
+  </a>
+  <a class="tab-link active" data-tab="cultivation" href="xian.html">
+    <span class="ic">🌟</span><span class="lb">修仙</span>
+  </a>
+</nav>
+
 <div id="toast" class="hidden"></div>
-<script src="xian-core.js"></script>
+<script src="xian-core.js?v=12"></script>
 <script>
 (function(){
-  var app = document.getElementById('app');
   var view = document.getElementById('view');
   document.getElementById('btnBack').addEventListener('click', function(){
-    history.length > 1 ? history.back() : location.href = './index.html';
+    history.length > 1 ? history.back() : location.href = 'index.html';
   });
   document.getElementById('btnSync').addEventListener('click', function(){
-    XianCore.syncAll(view);
+    if(window.XianCore) XianCore.syncAll(view);
   });
-  XianCore.init();
-  XianCore.renderTo(view);
+  /* 根据 URL hash 高亮当前 tab（虽然 xian.html 默认 activation） */
+  try{
+    var hash = (location.hash || '').replace('#','');
+    $$ && $$('.tab-link').forEach(function(a){
+      a.classList.toggle('active', a.dataset.tab === hash);
+    });
+  }catch(e){}
+  if(window.XianCore){
+    XianCore.init();
+    XianCore.renderTo(view);
+  } else {
+    view.innerHTML = '<div style="padding:60px 20px;text-align:center;color:#8fa3bf;">模块加载失败，<a href="javascript:location.reload()" style="color:#fbbf24;">刷新重试</a></div>';
+  }
 })();
 </script>
 </body>
