@@ -428,54 +428,42 @@ function renderMain(container){
   /* v8.5: 兼容 state.settings.restSec（防御 undefined） */
   var restSecVal = (state.settings && state.settings.restSec) ? state.settings.restSec : 60;
 
-  /* === 增强版身体数据（多围度 + 自动算 BMI/LBM/FFMI/预估体脂率） === */
+  /* === v8.8 简化肉身档案：只显示核心 6 围 + FFMI/LBM/体脂率，灵根按 FFMI 严格测算 === */
   var p = getProfile();
   var b = getBodyLatest() || {};
   var h = num(p.height, 0);
   var w = num(b.weight, 0) || num(p.weight, 0);
   var chest = num(b.chest, 0);
   var waist = num(b.waist, 0);
-  var hip = num(b.hip, 0);
   var arm = num(xian.body.arm, 0) || num(b.arm, 0);
   var thigh = num(xian.body.thigh, 0) || num(b.thigh, 0);
-  var calf = num(xian.body.calf, 0) || num(b.calf, 0);
-  var neck = num(xian.body.neck, 0) || num(b.neck, 0);
-  var gripL = num(xian.body.gripL, 0) || num(b.gripL, 0);
-  var gripR = num(xian.body.gripR, 0) || num(b.gripR, 0);
-  var bodyFat = num(b.bodyFat, 0) || num(xian.body.bodyFat, 0);
   /* 自动计算 BMI */
   var bmi = (h>0 && w>0) ? (w / Math.pow(h/100, 2)) : 0;
   var bmiLevel = !bmi ? '--' : (bmi<18.5?'偏瘦':bmi<24?'正常':bmi<28?'超重':'肥胖');
   /* LBM（瘦体重）— FFMI 公式（文档）：LBM = 体重 × (1 - 预估体脂率/100） */
   var estFat = (cr && cr.estFat) ? cr.estFat*100 : 0;
   var lbm = (w>0 && estFat>0) ? w*(1-estFat/100) : 0;
-  /* FFMI 显示（已在 cr.ffmi） */
 
   var cell = function(label, val, unit){ return '<div class="bd-cell"><div class="k">'+label+'</div><div class="n">'+ (val||'--') +'<span class="u"> '+ (unit||'') +'</span></div></div>'; };
-  /* 上半部分：基础测量 */
+  /* 上半部分：基础 3 项 */
   var bodyTop = '<div class="bd-grid-3">'+
     cell('身高', h, 'cm')+
     cell('体重', w, 'kg')+
     cell('BMI', bmi?bmi.toFixed(1):'--', bmiLevel)+
   '</div>';
-  /* 下半部分：六围 + 握力 + 体脂率 */
+  /* 下半部分：简化版 4 项核心围度 + 体脂率（点"查看详细"按钮进入历史模块） */
   var bodyMid = '<div class="bd-grid-3" style="margin-top:8px;">'+
     cell('胸围', chest, 'cm')+
     cell('腰围(空腹)', waist, 'cm')+
-    cell('臀围', hip, 'cm')+
     cell('放松臂围', arm, 'cm')+
     cell('大腿围', thigh, 'cm')+
-    cell('小腿围', calf, 'cm')+
-    cell('颈围', neck, 'cm')+
-    cell('握力 左/右', (gripL||gripR)?(gripL+'/'+gripR):'--', 'kg')+
-    cell('体脂率', estFat?estFat.toFixed(1):'--', '%')+
   '</div>';
-  /* FFMI 计算摘要（实时根据填写数据） */
+  /* FFMI 计算摘要（实时根据填写数据）+ 灵根按 FFMI 严格测算 */
   var ffmiSummary = '<div class="ffmi-summary">'+
-    '<div class="ffmi-item"><div class="ffmi-k">FFMI</div><div class="ffmi-v">'+(cr?cr.ffmi.toFixed(1):'--')+'</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">FFMI</div><div class="ffmi-v" style="color:'+root.color+';">'+(cr?cr.ffmi.toFixed(1):'--')+'</div></div>'+
     '<div class="ffmi-item"><div class="ffmi-k">瘦体重 LBM</div><div class="ffmi-v">'+(lbm?lbm.toFixed(1):'--')+' kg</div></div>'+
     '<div class="ffmi-item"><div class="ffmi-k">预估体脂率</div><div class="ffmi-v">'+(estFat?estFat.toFixed(1):'--')+'%</div></div>'+
-    '<div class="ffmi-item"><div class="ffmi-k">灵根倍率</div><div class="ffmi-v" style="color:'+root.color+';">×'+root.mult.toFixed(2)+'</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">灵根 倍率</div><div class="ffmi-v" style="color:'+root.color+';">×'+root.mult.toFixed(2)+'</div></div>'+
   '</div>';
 
   container.innerHTML =
@@ -515,7 +503,8 @@ function renderMain(container){
       /* ⑦ 必要功能操作（置底：融合原"我的"页所有功能 v8.5） */
       '<div class="sec-title">⚙️ 必要功能</div>'+
       '<div class="action-grid">'+
-        '<button class="action-btn primary" data-act="editBody">✏️ 修改身体数据</button>'+
+        '<button class="action-btn primary" data-act="openBodyHistory">📊 身体数据历史（详细）</button>'+
+        '<button class="action-btn ghost" data-act="editBody">✏️ 修改核心数据</button>'+
         '<button class="action-btn gold" data-act="syncAll">🔄 同步训练修为</button>'+
         '<button class="action-btn ghost" data-act="openAIReport">✨ AI分析</button>'+
         '<button class="action-btn ghost" data-act="openBodyData">📊 体测记录</button>'+
@@ -710,6 +699,17 @@ function bindEvents(container){
       openHelpSheet(container);
       handledHere = true;
     }
+    else if(act && act.dataset.act === 'openBodyHistory'){
+      openBodyHistory(container);
+      handledHere = true;
+    }
+    else if(act && act.dataset.act === 'addBodyLogRow'){
+      /* 兜底：通常被 modal 内 click 截获 */
+      var openModals = document.querySelectorAll('.body-history-modal');
+      if(openModals.length){ openModals[openModals.length-1].remove(); }
+      openAddBodyLog(container);
+      handledHere = true;
+    }
     /* handledHere 的 act 阻止冒泡（避免重复触发 app.js 同名 handler），
        其他 act（passthrough）放行冒泡 */
     if(handledHere){ e.stopPropagation(); return; }
@@ -741,6 +741,124 @@ function openHelpSheet(container){
   document.body.appendChild(m);
   m.addEventListener('click', function(e){
     if(e.target.dataset.act==='closeHelp') m.remove();
+  });
+}
+
+/* v8.8 身体数据历史模块：全屏 sheet 列出所有 bodyLog + 添加新记录（每日追加不覆盖） */
+function openBodyHistory(container){
+  /* 防御 state.bodyLog undefined */
+  if(!state.bodyLog) state.bodyLog = [];
+  /* 按日期降序 */
+  var logs = state.bodyLog.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||''); });
+  var rowsHtml = '';
+  if(logs.length === 0){
+    rowsHtml = '<div style="text-align:center;padding:30px;color:#8fa3bf;font-size:14px;">还没有身体数据记录<br>点击下方"📝 添加新记录"开始追踪</div>';
+  } else {
+    rowsHtml = logs.map(function(b, i){
+      var fields = [
+        ['体重', b.weight, 'kg'], ['胸围', b.chest, 'cm'], ['腰围', b.waist, 'cm'],
+        ['臀围', b.hip, 'cm'], ['臂围', b.arm, 'cm'], ['大腿', b.thigh, 'cm'],
+        ['小腿', b.calf, 'cm'], ['颈围', b.neck, 'cm'],
+        ['握力L', b.gripL, 'kg'], ['握力R', b.gripR, 'kg'],
+        ['体脂', b.bodyFat, '%'], ['骨骼肌', b.skeletal, '%'], ['内脏脂肪', b.visceral, '']
+      ].filter(function(f){return f[1] && +f[1] > 0;}).map(function(f){
+        return '<span style="display:inline-block;margin:2px 4px;padding:2px 8px;background:#1a2540;border-radius:6px;font-size:12px;color:#cbd5e1;"><b>'+f[0]+'</b> '+f[1]+f[2]+'</span>';
+      }).join('');
+      return '<div class="bh-row" data-date="'+b.date+'">'+
+        '<div class="bh-head"><span class="bh-date">'+b.date+'</span>'+(i===0?'<span class="bh-tag">最新</span>':'')+
+          '<span class="bh-act"><button data-act="delBodyLog" data-date="'+b.date+'" style="background:transparent;color:#ef4444;border:0;cursor:pointer;font-size:14px;">🗑️</button></span>'+
+        '</div>'+
+        '<div class="bh-fields">'+ (fields||'<span style="color:#64748b;font-size:12px;">无数据</span>') +'</div>'+
+      '</div>';
+    }).join('');
+  }
+  var m = document.createElement('div');
+  m.className='modal body-history-modal';
+  m.innerHTML = '<div class="modal-card" style="max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">'+
+    '<h3 style="flex:0 0 auto;">📊 身体数据历史 <span style="font-size:12px;color:#8fa3bf;font-weight:400;">共 '+logs.length+' 条</span></h3>'+
+    '<div style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;">'+ rowsHtml +'</div>'+
+    '<div class="form-actions" style="flex:0 0 auto;">'+
+      '<button class="btn ghost" data-act="closeBodyHistory">关闭</button>'+
+      '<button class="btn primary" data-act="addBodyLogRow">📝 添加新记录</button>'+
+    '</div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){
+    var a = e.target.dataset.act;
+    if(a === 'closeBodyHistory'){ m.remove(); return; }
+    if(a === 'addBodyLogRow'){ m.remove(); openAddBodyLog(container); return; }
+    if(a === 'delBodyLog'){
+      var d = e.target.dataset.date;
+      if(!d) return;
+      if(!confirm('确认删除 '+d+' 的记录？')) return;
+      state.bodyLog = state.bodyLog.filter(function(x){return x.date !== d;});
+      save(); m.remove(); openBodyHistory(container);
+      toastQ('已删除 '+d);
+      return;
+    }
+  });
+}
+function openAddBodyLog(container){
+  var today = new Date();
+  var ds = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  var m = document.createElement('div');
+  m.className='modal';
+  m.innerHTML = '<div class="modal-card" style="max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">'+
+    '<h3>📝 添加新身体数据记录</h3>'+
+    '<p style="font-size:12px;color:#8fa3bf;margin:6px 0 12px;">记录保存后追加到历史，不覆盖其他日期数据</p>'+
+    '<div class="form-field"><label>📅 日期</label><input id="bh_date" type="date" value="'+ds+'"/></div>'+
+    '<div class="form-grid">'+
+      '<div class="form-field"><label>体重 kg</label><input id="bh_weight" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>胸围 cm</label><input id="bh_chest" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>腰围 cm</label><input id="bh_waist" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>臀围 cm</label><input id="bh_hip" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>放松臂围 cm</label><input id="bh_arm" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>大腿围 cm</label><input id="bh_thigh" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>小腿围 cm</label><input id="bh_calf" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>颈围 cm</label><input id="bh_neck" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>握力 左 kg</label><input id="bh_gripL" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>握力 右 kg</label><input id="bh_gripR" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>体脂率 %</label><input id="bh_bodyFat" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>骨骼肌 %</label><input id="bh_skeletal" type="number" step="0.1"/></div>'+
+      '<div class="form-field"><label>内脏脂肪</label><input id="bh_visceral" type="number" step="0.1"/></div>'+
+    '</div>'+
+    '<div class="form-actions">'+
+      '<button class="btn ghost" data-act="cancelAddBodyLog">取消</button>'+
+      '<button class="btn primary" data-act="saveBodyLog">保存记录</button>'+
+    '</div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){
+    var a = e.target.dataset.act;
+    if(a === 'cancelAddBodyLog'){ m.remove(); openBodyHistory(container); return; }
+    if(a === 'saveBodyLog'){
+      var d = document.getElementById('bh_date').value;
+      if(!d){ toastQ('请选择日期'); return; }
+      var entry = {date: d};
+      ['weight','chest','waist','hip','arm','thigh','calf','neck','gripL','gripR','bodyFat','skeletal','visceral'].forEach(function(k){
+        var v = +document.getElementById('bh_'+k).value;
+        if(v > 0) entry[k] = v;
+      });
+      if(Object.keys(entry).length < 2){ toastQ('请至少填写 1 个数据'); return; }
+      /* 防御 + 去重（同日期覆盖最新一条） */
+      if(!state.bodyLog) state.bodyLog = [];
+      var idx = state.bodyLog.findIndex(function(x){return x.date === d;});
+      if(idx >= 0){
+        state.bodyLog[idx] = Object.assign({}, state.bodyLog[idx], entry);
+      } else {
+        state.bodyLog.push(entry);
+      }
+      state.bodyLog.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
+      save();
+      /* 同步刷新 xian.body 缓存字段 */
+      var latest = state.bodyLog[state.bodyLog.length-1] || {};
+      ['arm','thigh','calf','neck','gripL','gripR'].forEach(function(k){
+        if(latest[k]) xian.body[k] = latest[k];
+      });
+      save();
+      m.remove();
+      openBodyHistory(container);
+      toastQ('已保存 '+d+' 的身体数据');
+      return;
+    }
   });
 }
 
@@ -818,6 +936,15 @@ function injectStyle(){
     '.action-btn.gold{background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;}',
     '.action-btn.ghost{background:#1a2540;color:#e2e8f0;border:1px solid #26314d;}',
     '.action-btn.danger{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid #7f1d1d;}',
+    /* v8.8 身体数据历史模块样式 */
+    '.bh-row{background:rgba(124,240,169,.04);border:1px solid #1e293b;border-radius:10px;padding:10px;margin-bottom:8px;}',
+    '.bh-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}',
+    '.bh-date{font-size:14px;font-weight:700;color:#7cf0a9;font-family:monospace;}',
+    '.bh-tag{background:#7cf0a9;color:#0b1120;font-size:10px;padding:1px 6px;border-radius:6px;font-weight:700;}',
+    '.bh-fields{line-height:1.8;}',
+    '.bh-act button:active{transform:scale(.9);}',
+    '.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}',
+    '.form-grid .form-field{margin:0;}',
     '.action-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#131c31;border-radius:12px;border:1px solid #26314d;}',
     '.bd-cell{background:#1a2540;border-radius:10px;padding:8px;text-align:center;}',
     '.bd-cell .k{font-size:10px;color:var(--muted,#8fa3bf);}',
