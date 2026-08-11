@@ -953,11 +953,32 @@ document.addEventListener('click', e=>{
       if(session.items[j]) session.items[j].supersetWith = null;
       closeSheet(); renderWorkoutList(); toast('已取消超级组');
     } else {
-      if(i+1 >= session.items.length){ toast('下面没有动作了，无法组合'); return; }
-      it.supersetWith = i+1;
-      session.items[i+1].supersetWith = i;
-      closeSheet(); renderWorkoutList();
-      toast('已与「'+session.items[i+1].name+'」组成超级组');
+      /* v8.11: 跳动作库选动作（openPicker） */
+      const afterPick = function(exId){
+        if(!exId) return;
+        /* 插入新动作到 i+1 位置 */
+        const newItem = {
+          exId: exId,
+          sets: [{weight:'',reps:'',rpe:'',done:false,warmup:false}],
+          restSec: 0,
+          notes: '',
+          supersetWith: i,
+          lb: false
+        };
+        session.items.splice(i+1, 0, newItem);
+        it.supersetWith = i+1;
+        /* 重新映射后续动作的 supersetWith 引用 */
+        session.items.forEach(function(x, idx){
+          if(x.supersetWith !== null && x.supersetWith !== undefined && x.supersetWith > i){
+            x.supersetWith += 1;
+          }
+        });
+        closeSheet(); renderWorkoutList();
+        toast('超级组已添加');
+      };
+      /* 用 picker 选动作（app.js 的 pickerPart/pickerQuery 状态） */
+      window._supersetAfterPick = afterPick;
+      openPicker();
     }
     return;
   }
