@@ -1478,6 +1478,8 @@ function bdQuickEditField(fieldName){
     chest:     {title:'选择胸围', unit:'cm', min:50, max:200, step:0.1, saveKey:'chest', storeField:'chest'},
     waist:     {title:'选择腰围', unit:'cm', min:40, max:200, step:0.1, saveKey:'waist', storeField:'waist'},
     hip:       {title:'选择臀围', unit:'cm', min:50, max:200, step:0.1, saveKey:'hip', storeField:'hip'},
+    /* v8.15 新增 shoulder 字段（仙途页肉身档案使用） */
+    shoulder:  {title:'选择肩宽', unit:'cm', min:20, max:80, step:0.1, saveKey:'shoulder', storeField:'shoulder'},
     skeletal:  {title:'选择骨骼肌', unit:'kg', min:5, max:80, step:0.1, saveKey:'skeletal', storeField:'skeletal'},
     visceral:  {title:'选择内脏脂肪', unit:'级', min:1, max:30, step:0.5, saveKey:'visceral', storeField:'visceral'},
   };
@@ -1510,8 +1512,15 @@ function bdQuickEditField(fieldName){
         state.profile[fieldName] = v;
       }
       save();
-      if(!$('#bodydata-view').classList.contains('hidden')) renderBodyData();
-      else render();
+      /* v8.15: 智能刷新——如果在 bodydata 主页刷 bodyData，否则如果仙途刷 renderMain，否则刷 render */
+      if(!$('#bodydata-view').classList.contains('hidden')){
+        renderBodyData();
+      } else if(window.XianCore && document.querySelector('.xc-root')){
+        var host = document.querySelector('.xc-root');
+        try{ window.XianCore.renderTo(host); }catch(e){ render(); }
+      } else {
+        render();
+      }
       toast(cfg.title.replace('设置','') + '已保存：' + v + ' ' + cfg.unit);
     }
   });
