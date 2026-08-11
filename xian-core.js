@@ -428,37 +428,34 @@ function renderMain(container){
   /* v8.5: 兼容 state.settings.restSec（防御 undefined） */
   var restSecVal = (state.settings && state.settings.restSec) ? state.settings.restSec : 60;
 
-  /* === v8.8 简化肉身档案：只显示核心 6 围 + FFMI/LBM/体脂率，灵根按 FFMI 严格测算 === */
+  /* === v8.9 简化肉身档案：只显示核心 6 字段（身高/体重/BMI/胸围/肩宽/臂围） === */
   var p = getProfile();
   var b = getBodyLatest() || {};
   var h = num(p.height, 0);
   var w = num(b.weight, 0) || num(p.weight, 0);
   var chest = num(b.chest, 0);
-  var waist = num(b.waist, 0);
+  var shoulder = num(xian.body.shoulder, 0) || num(b.shoulder, 0);
   var arm = num(xian.body.arm, 0) || num(b.arm, 0);
-  var thigh = num(xian.body.thigh, 0) || num(b.thigh, 0);
   /* 自动计算 BMI */
   var bmi = (h>0 && w>0) ? (w / Math.pow(h/100, 2)) : 0;
   var bmiLevel = !bmi ? '--' : (bmi<18.5?'偏瘦':bmi<24?'正常':bmi<28?'超重':'肥胖');
-  /* LBM（瘦体重）— FFMI 公式（文档）：LBM = 体重 × (1 - 预估体脂率/100） */
+  /* LBM + 预估体脂率 */
   var estFat = (cr && cr.estFat) ? cr.estFat*100 : 0;
   var lbm = (w>0 && estFat>0) ? w*(1-estFat/100) : 0;
 
   var cell = function(label, val, unit){ return '<div class="bd-cell"><div class="k">'+label+'</div><div class="n">'+ (val||'--') +'<span class="u"> '+ (unit||'') +'</span></div></div>'; };
-  /* 上半部分：基础 3 项 */
-  var bodyTop = '<div class="bd-grid-3">'+
+  /* 6 字段布局：2 行 × 3 列 */
+  var bodyGrid = '<div class="bd-grid-3">'+
     cell('身高', h, 'cm')+
     cell('体重', w, 'kg')+
     cell('BMI', bmi?bmi.toFixed(1):'--', bmiLevel)+
-  '</div>';
-  /* 下半部分：简化版 4 项核心围度 + 体脂率（点"查看详细"按钮进入历史模块） */
-  var bodyMid = '<div class="bd-grid-3" style="margin-top:8px;">'+
+  '</div>'+
+  '<div class="bd-grid-3" style="margin-top:8px;">'+
     cell('胸围', chest, 'cm')+
-    cell('腰围(空腹)', waist, 'cm')+
-    cell('放松臂围', arm, 'cm')+
-    cell('大腿围', thigh, 'cm')+
+    cell('肩宽', shoulder, 'cm')+
+    cell('臂围', arm, 'cm')+
   '</div>';
-  /* FFMI 计算摘要（实时根据填写数据）+ 灵根按 FFMI 严格测算 */
+  /* FFMI/LBM/体脂率 + 灵根倍率（参考截图7） */
   var ffmiSummary = '<div class="ffmi-summary">'+
     '<div class="ffmi-item"><div class="ffmi-k">FFMI</div><div class="ffmi-v" style="color:'+root.color+';">'+(cr?cr.ffmi.toFixed(1):'--')+'</div></div>'+
     '<div class="ffmi-item"><div class="ffmi-k">瘦体重 LBM</div><div class="ffmi-v">'+(lbm?lbm.toFixed(1):'--')+' kg</div></div>'+
@@ -483,11 +480,11 @@ function renderMain(container){
         '<span class="root-badge" style="background:'+root.color+'22;color:'+root.color+';">'+root.name+'</span>'+
         '<span class="root-ffmi">'+ffmiTxt+'</span>'+dbg+
       '</div>'+
-      /* ③ 肉身档案（提到灵根下边 + 更详细 + 自动算 FFMI） */
-      '<div class="sec-title">🧬 肉身档案 <span class="sub">数据更详细 · 自动算 FFMI/BMI/LBM</span></div>'+
+      /* ③ 肉身档案（v8.9 精简到 6 字段） */
+      '<div class="sec-title">🧬 肉身档案 <span class="sub">核心 6 字段 · 自动算 FFMI/BMI/LBM</span></div>'+
       '<div class="body-card">'+
-        bodyTop + bodyMid + ffmiSummary +
-        '<button class="body-edit" data-act="editBody" style="margin-top:10px;">✏️ 修改身体数据（更详细字段）</button>'+
+        bodyGrid + ffmiSummary +
+        '<button class="body-edit" data-act="editBody" style="margin-top:10px;">✏️ 修改身体数据（6 字段）</button>'+
       '</div>'+
       /* ④ 道途 4 卡 */
       '<div class="sec-title">⚔️ 修炼道途 <span class="sub">点击切换</span></div>'+
@@ -500,26 +497,17 @@ function renderMain(container){
       /* ⑥ 系统说明 */
       '<div class="sec-title">📖 系统说明</div>'+
       '<div class="help-card">'+CONFIG.HELP.replace(/\n/g,'<br>')+'</div>'+
-      /* ⑦ 必要功能操作（置底：融合原"我的"页所有功能 v8.5） */
+      /* ⑦ 必要功能操作（v8.9 精简到 8 项） */
       '<div class="sec-title">⚙️ 必要功能</div>'+
       '<div class="action-grid">'+
-        '<button class="action-btn primary" data-act="openBodyHistory">📊 身体数据历史（详细）</button>'+
-        '<button class="action-btn ghost" data-act="editBody">✏️ 修改核心数据</button>'+
-        '<button class="action-btn gold" data-act="syncAll">🔄 同步训练修为</button>'+
-        '<button class="action-btn ghost" data-act="openAIReport">✨ AI分析</button>'+
         '<button class="action-btn ghost" data-act="openBodyData">📊 体测记录</button>'+
-        '<button class="action-btn ghost" data-act="openMyStatus">💗 状态记录</button>'+
+        '<button class="action-btn gold" data-act="syncAll">🔄 同步训练修为</button>'+
         '<button class="action-btn ghost" data-act="exportData">📤 导出数据</button>'+
-        '<button class="action-btn ghost" data-act="gotoLibrary">📚 我的动作</button>'+
-        '<button class="action-btn ghost" data-act="setRest">⚙️ 训练设置（休息'+restSecVal+'s）</button>'+
         '<button class="action-btn ghost" data-act="openPerms">🔐 权限说明</button>'+
         '<button class="action-btn ghost" data-act="openAbout">ℹ️ 关于我们</button>'+
         '<button class="action-btn ghost" data-act="openFeedback">💬 意见反馈</button>'+
         '<button class="action-btn ghost" data-act="openPrivacy">🛡️ 隐私协议</button>'+
         '<button class="action-btn ghost" data-act="openHelp">📖 系统说明</button>'+
-        '<button class="action-btn danger" data-act="clearAll">🗑️ 清空所有数据</button>'+
-        '<div class="action-row"><span style="font-size:12px;color:#8fa3bf;">✨ 粒子动画</span>'+
-          '<label class="switch"><input type="checkbox" id="xianFxSwitch" '+(fxEnabled?'checked':'')+'><span class="sl"></span></label></div>'+
       '</div>'+
       '<div style="height:100px;"></div>'+
     '</div>';
@@ -598,28 +586,18 @@ function openBodyEditor(container){
   var b = getBodyLatest() || {};
   var m = document.createElement('div');
   m.className='modal';
-  m.innerHTML = '<div class="modal-card"><h3>🧬 修改身体数据（详细字段）</h3>'+
-    '<p style="font-size:12px;color:#8fa3bf;margin:-8px 0 12px;">填写后自动计算 BMI/FFMI/预估体脂率/灵根</p>'+
-    /* 基础 */
+  /* v8.9: 简化身体数据表单，只保留核心 6 项：身高/体重/体脂/胸围/肩宽/臂围 */
+  m.innerHTML = '<div class="modal-card"><h3>🧬 修改身体数据（核心 6 项）</h3>'+
+    '<p style="font-size:12px;color:#8fa3bf;margin:-8px 0 12px;">填写后自动算 BMI/FFMI/灵根<br>详细历史请用底部「身体数据历史」</p>'+
     '<div class="form-grid">'+
-      '<div class="form-field"><label>身高 cm（基准184）</label><input id="edHeight" type="number" step="0.1" min="100" max="230" value="'+(p.height||'')+'"/></div>'+
-      '<div class="form-field"><label>空腹体重 kg</label><input id="edWeight" type="number" step="0.1" min="20" max="200" value="'+(num(b.weight,0)||num(p.weight,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>体脂率 %（可选）</label><input id="edBodyFat" type="number" step="0.1" min="3" max="50" value="'+(num(b.bodyFat,0)||num(xian.body.bodyFat,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>身高 cm（基准184）</label><input id="edHeight" type="number" inputmode="decimal" step="0.1" min="100" max="230" value="'+(p.height||'')+'" style="pointer-events:auto !important;"/></div>'+
+      '<div class="form-field"><label>空腹体重 kg</label><input id="edWeight" type="number" inputmode="decimal" step="0.1" min="20" max="200" value="'+(num(b.weight,0)||num(p.weight,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>体脂率 %（可选）</label><input id="edBodyFat" type="number" inputmode="decimal" step="0.1" min="3" max="50" value="'+(num(b.bodyFat,0)||num(xian.body.bodyFat,0)||'')+'"/></div>'+
     '</div>'+
     '<div class="form-grid" style="margin-top:8px;">'+
-      '<div class="form-field"><label>胸围 cm</label><input id="edChest" type="number" step="0.1" value="'+(num(b.chest,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>空腹腰围 cm</label><input id="edWaist" type="number" step="0.1" value="'+(num(b.waist,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>臀围 cm</label><input id="edHip" type="number" step="0.1" value="'+(num(b.hip,0)||'')+'"/></div>'+
-    '</div>'+
-    '<div class="form-grid" style="margin-top:8px;">'+
-      '<div class="form-field"><label>放松臂围 cm</label><input id="edArm" type="number" step="0.1" value="'+(num(xian.body.arm,0)||num(b.arm,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>大腿围 cm</label><input id="edThigh" type="number" step="0.1" value="'+(num(xian.body.thigh,0)||num(b.thigh,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>小腿围 cm</label><input id="edCalf" type="number" step="0.1" value="'+(num(xian.body.calf,0)||num(b.calf,0)||'')+'"/></div>'+
-    '</div>'+
-    '<div class="form-grid" style="margin-top:8px;">'+
-      '<div class="form-field"><label>颈围 cm</label><input id="edNeck" type="number" step="0.1" value="'+(num(xian.body.neck,0)||num(b.neck,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>握力 左 kg</label><input id="edGripL" type="number" step="0.1" value="'+(num(xian.body.gripL,0)||num(b.gripL,0)||'')+'"/></div>'+
-      '<div class="form-field"><label>握力 右 kg</label><input id="edGripR" type="number" step="0.1" value="'+(num(xian.body.gripR,0)||num(b.gripR,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>胸围 cm</label><input id="edChest" type="number" inputmode="decimal" step="0.1" value="'+(num(b.chest,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>肩宽 cm</label><input id="edShoulder" type="number" inputmode="decimal" step="0.1" value="'+(num(xian.body.shoulder,0)||num(b.shoulder,0)||'')+'"/></div>'+
+      '<div class="form-field"><label>放松臂围 cm</label><input id="edArm" type="number" inputmode="decimal" step="0.1" value="'+(num(xian.body.arm,0)||num(b.arm,0)||'')+'"/></div>'+
     '</div>'+
     '<div class="form-actions"><button class="btn ghost" data-act="bodyCancel">取消</button>'+
     '<button class="btn primary" data-act="bodySave">保存并重算</button></div></div>';
@@ -630,15 +608,9 @@ function openBodyEditor(container){
       var h = num(document.getElementById('edHeight').value, 0);
       var w = num(document.getElementById('edWeight').value, 0);
       var chest = num(document.getElementById('edChest').value, 0);
-      var waist = num(document.getElementById('edWaist').value, 0);
       var arm = num(document.getElementById('edArm').value, 0);
-      var thigh = num(document.getElementById('edThigh').value, 0);
+      var shoulder = num(document.getElementById('edShoulder').value, 0);
       var bodyFat = num(document.getElementById('edBodyFat').value, 0);
-      var hip = num(document.getElementById('edHip').value, 0);
-      var calf = num(document.getElementById('edCalf').value, 0);
-      var neck = num(document.getElementById('edNeck').value, 0);
-      var gripL = num(document.getElementById('edGripL').value, 0);
-      var gripR = num(document.getElementById('edGripR').value, 0);
       if(h<=0 || w<=0){ toastQ(CONFIG.TOAST.badVal); return; }
       if(h<100 || h>230){ toastQ('身高范围 100-230cm，请重新输入'); return; }
       if(w<20 || w>200){ toastQ('体重范围 20-200kg，请重新输入'); return; }
@@ -647,20 +619,15 @@ function openBodyEditor(container){
       if(!state.bodyLog) state.bodyLog = [];
       var d = new Date();
       var ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      var entry = {date:ds, weight:w, bodyFat:bodyFat||'', bmr:'', chest:chest||'', waist:waist||'', hip:hip||'', skeletal:'', visceral:''};
+      var entry = {date:ds, weight:w, bodyFat:bodyFat||'', chest:chest||''};
       var idx = state.bodyLog.findIndex(function(x){return x.date===ds;});
       if(idx>=0) state.bodyLog[idx] = Object.assign(state.bodyLog[idx], entry);
       else state.bodyLog.push(entry);
-      /* 修仙模块私有补充字段（臂围/大腿围/小腿围/颈围/握力，APP 缺这些） */
+      /* 修仙模块私有补充字段（肩宽 + 臂围） */
+      xian.body.shoulder = shoulder;
       xian.body.arm = arm;
-      xian.body.thigh = thigh;
-      xian.body.calf = calf;
-      xian.body.neck = neck;
-      xian.body.gripL = gripL;
-      xian.body.gripR = gripR;
       if(bodyFat) xian.body.bodyFat = bodyFat;
       save(); m.remove();
-      /* 立即重算并显示 */
       var root = getRoot();
       if(root && root.ffmi){
         toastQ('灵根已更新：'+root.name+'（FFMI '+root.ffmi.toFixed(1)+'）');
@@ -871,7 +838,7 @@ function injectStyle(){
   var st = document.createElement('style');
   st.id = 'xian-core-style';
   st.textContent = [
-    '.xc-page{padding:4px 16px 20px;}',
+    '.xc-page{padding:4px 16px 20px;max-width:100vw;box-sizing:border-box;}',
     '.realm-strip{display:flex;align-items:center;gap:10px;margin-top:4px;background:var(--card,#131c31);border:1px solid var(--line,#26314d);border-radius:14px;padding:12px;}',
     '.realm-ic{font-size:30px;line-height:1;filter:drop-shadow(0 0 8px var(--dao,#fbbf24));}',
     '.realm-info{flex:1;min-width:0;}',
