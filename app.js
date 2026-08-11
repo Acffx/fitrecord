@@ -535,6 +535,7 @@ function renderHistory(){
 }
 
 /* ---------- 某日记录弹层（含补录入口） ---------- */
+/* ---------- v8.11 某日详情页（复刻截图7：记录列表 + 今日状态emoji + 添加历史/有氧/快速记录） ---------- */
 function viewDay(dateStr){
   const list = state.workouts.filter(w=>w.date===dateStr);
   const d = new Date(dateStr+'T12:00:00');
@@ -543,32 +544,215 @@ function viewDay(dateStr){
     const sub = isCardio
       ? `${fmtShortDur(w.duration||0)}${w.cardio&&w.cardio.distance?' · '+w.cardio.distance+'km':''}${w.cardio&&w.cardio.kcal?' · '+w.cardio.kcal+'kcal':''}`
       : `${fmtShortDur(w.duration||0)} · ${w.items.length}个动作 · ${w.volume}kg`;
-    return `<div class="day-w-item" data-act="viewWorkout" data-id="${w.id}">
-      <div class="idx ${isCardio?'pink':''}">${i+1}</div>
-      <div class="t"><div class="n">${escapeHtml(w.planName)}</div><div class="s">${sub}</div></div>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+    return `<div class="ds-row" data-act="viewWorkout" data-id="${w.id}">
+      <div class="ic">${i+1}</div>
+      <div class="txt"><div class="t">${escapeHtml(w.planName)}</div><div class="s">${sub}</div></div>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
     </div>`;
   }).join('');
+  const isToday = dateStr === todayStr();
+  /* 全屏 sheet（仿照截图7 底部弹起 sheet） */
   openSheet(`
-    <div class="day-sheet-head">
-      <h3>${d.getMonth()+1}月${d.getDate()}日 记录</h3>
-      <button class="icon-btn" data-act="closeSheet" style="background:var(--line);color:var(--muted);width:32px;height:32px;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    <div class="day-sheet">
+      <div class="ds-head">
+        <h3>${d.getMonth()+1}月${d.getDate()}日 记录</h3>
+        <span class="ds-pick">选择查看类型</span>
+        <button class="ds-close" data-act="closeSheet" style="position:absolute;right:14px;top:14px;background:transparent;color:#94a3b8;border:0;font-size:18px;cursor:pointer;">×</button>
+      </div>
+      ${isToday ? `<div class="ds-state">今日状态</div>
+      <div class="ds-emojis" data-act="setStateEmoji">
+        ${['😊','😄','🤩','😎','🔥','💪','😴','🤔','😢','😡','🥱','🤒'].map(function(e){return '<div class="ds-emoji" data-emoji="'+e+'">'+e+'</div>';}).join('')}
+      </div>` : ''}
+      ${items || ''}
+      <div class="ds-row alt" data-act="dayAddHistory" data-date="${dateStr}">
+        <div class="ic" style="background:transparent;border:1px dashed #3b82f6;color:#3b82f6;">+</div>
+        <div class="txt"><div class="t" style="color:#3b82f6;">添加历史记录</div><div class="s">用于添加历史训练记录，不受时间限制</div></div>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <div class="ds-row alt" data-act="dayAddCardio" data-date="${dateStr}">
+        <div class="ic" style="background:transparent;border:1px dashed #f59e0b;color:#f59e0b;">+</div>
+        <div class="txt"><div class="t" style="color:#f59e0b;">添加有氧记录</div><div class="s">用于添加有氧训练记录，不受时间限制</div></div>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
     </div>
-    ${items}
-    <div style="height:6px;"></div>
-    <div class="day-add-row" data-act="dayAddHistory" data-date="${dateStr}">
-      <div class="day-add-ic" style="background:var(--accent-light);color:var(--accent);">＋</div>
-      <div class="t"><div class="n" style="color:var(--accent);">添加历史记录</div><div class="s">用于添加历史训练记录，不受时间限制</div></div>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+  `, /* fullScreen */ true);
+}
+/* ---------- v8.11 快速记录页（复刻截图8：选择动作 + 提交训练） ---------- */
+function dayAddHistory(dateStr){
+  /* 用临时 sessions.quick 存动作列表 */
+  window._quickItems = [];
+  window._quickDate = dateStr;
+  openSheet(`
+    <div class="quick-sheet">
+      <div class="qs-head">
+        <span class="qs-back" data-act="viewDay" data-date="${dateStr}">‹</span>
+        <span class="qs-title">快速记录</span>
+      </div>
+      <div class="qs-card" id="quick-times">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-size:13px;color:#64748b;">快速训练记录</div></div>
+          <div>
+            <span class="qs-time-pill" data-st="0">${dateStr} 00:00</span>
+            <span class="qs-time-pill" data-st="1" style="margin-left:6px;">${dateStr} 01:00</span>
+          </div>
+        </div>
+      </div>
+      <div class="qs-empty" id="quick-empty">
+        <div class="ic">🏋️</div>
+        <div class="t">还没有添加动作</div>
+        <div class="s">点击下方按钮开始添加</div>
+      </div>
+      <div id="quick-list"></div>
+      <div class="qs-actions">
+        <button class="qs-btn" data-act="quickAddEx">+ 添加动作</button>
+        <button class="qs-btn primary" data-act="quickFinish">完成训练 ✓</button>
+      </div>
     </div>
-    <div class="day-add-row" data-act="dayAddCardio" data-date="${dateStr}">
-      <div class="day-add-ic" style="background:#fdf2f8;color:var(--pink);">＋</div>
-      <div class="t"><div class="n" style="color:var(--pink);">添加有氧记录</div><div class="s">用于添加有氧训练记录，不受时间限制</div></div>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+  `, /* fullScreen */ true);
+}
+function quickRenderList(){
+  const list = document.getElementById('quick-list');
+  const empty = document.getElementById('quick-empty');
+  if(!list) return;
+  list.innerHTML = (window._quickItems||[]).map(function(it, idx){
+    const ex = resolveEx(it.exId);
+    return '<div class="qs-card" style="display:flex;justify-content:space-between;align-items:center;">'+
+      '<div><div style="font-weight:700;">'+escapeHtml(ex?ex.name:'未知道动作')+'</div>'+
+      '<div style="font-size:12px;color:#94a3b8;">'+it.sets.length+' 组</div></div>'+
+      '<button data-act="quickDelEx" data-idx="'+idx+'" style="background:transparent;color:#ef4444;border:0;">🗑</button></div>';
+  }).join('');
+  if(empty) empty.style.display = (window._quickItems||[]).length ? 'none' : 'block';
+}
+function quickAddEx(){
+  /* 弹动作选择器 */
+  window._afterPickQuick = function(exId){
+    if(!exId) return;
+    window._quickItems = window._quickItems || [];
+    window._quickItems.push({exId:exId, sets:[{weight:'',reps:'',done:false}], restSec:0, lb:false});
+    closeSheet();
+    dayAddHistory(window._quickDate);
+    quickRenderList();
+  };
+  openPicker();
+}
+function quickDelEx(idx){
+  window._quickItems.splice(idx, 1);
+  quickRenderList();
+}
+function quickFinish(){
+  if(!window._quickItems || !window._quickItems.length){
+    toast('请先添加动作'); return;
+  }
+  /* 创建训练记录 */
+  const date = window._quickDate;
+  const items = window._quickItems.map(function(it){
+    const ex = resolveEx(it.exId);
+    return {exId:it.exId, name:ex?ex.name:'动作', part:ex?ex.part:'其他', equip:ex?ex.equip:'', svg:ex?ex.svg:'', restSec:it.restSec||0, notes:'', sets:it.sets, lb:it.lb||false, supersetWith:null};
+  });
+  const vol = items.reduce(function(n,it){return n + (it.sets||[]).reduce(function(s,set){return s + ((+set.weight||0)*(+set.reps||0));},0);},0);
+  const wo = {
+    id: uid(),
+    planName: '快速记录',
+    date: date,
+    startAt: Date.now(),
+    duration: 3600,
+    paused: 0,
+    volume: vol,
+    items: items,
+    notes: '',
+    type: 'strength',
+    cultivationSettled: false
+  };
+  state.workouts.push(wo);
+  state.workouts.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
+  save();
+  closeSheet();
+  /* 标记状态 emoji */
+  if(window._todayEmoji){ wo.mood = window._todayEmoji; save(); }
+  toast('已添加 '+date+' 的快速训练记录');
+  render();
+}
+/* ---------- v8.11 有氧记录页（复刻截图9：选择动作 + 时间 + 距离） ---------- */
+function dayAddCardio(dateStr){
+  window._cardioState = {date:dateStr, kind:'跑步', dur:30, dist:'', kcal:''};
+  openSheet(`
+    <div class="cardio-sheet">
+      <div class="cs-head">
+        <span class="cs-back" data-act="viewDay" data-date="${dateStr}">‹</span>
+        <span class="cs-title">保存训练记录</span>
+      </div>
+      <div class="cs-card big" data-act="pickCardioKind">
+        <div class="ic" id="cd-icon">🏃</div>
+        <div class="t" id="cd-name">选择运动动作</div>
+        <div class="s">点击选择适合的有氧运动</div>
+      </div>
+      <div class="cs-time">
+        <div class="cs-time-card">
+          <div class="ic">▶️</div>
+          <div><div class="k">开始时间</div><div class="v" id="cd-start">--:--</div></div>
+        </div>
+        <div class="cs-time-card">
+          <div class="ic">⏹</div>
+          <div><div class="k">结束时间</div><div class="v" id="cd-end">--:--</div></div>
+        </div>
+      </div>
+      <div class="cs-card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span>📏</span><span style="font-weight:600;">运动距离</span></div>
+        <input id="cd-dist" type="number" step="0.1" placeholder="输入您的运动距离" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:20px;font-weight:700;text-align:center;"/>
+      </div>
+      <button class="cs-submit" data-act="saveCardioNew">✓ 提交记录</button>
+    </div>
+  `, /* fullScreen */ true);
+  /* 默认时间：现在-30分钟 */
+  const now = new Date();
+  const end = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const startDate = new Date(now.getTime() - 30*60000);
+  const start = String(startDate.getHours()).padStart(2,'0')+':'+String(startDate.getMinutes()).padStart(2,'0');
+  document.getElementById('cd-start').textContent = start;
+  document.getElementById('cd-end').textContent = end;
+}
+function pickCardioKind(){
+  openSheet(`
+    <h3 style="text-align:center;">选择有氧类型</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;">
+    ${CARDIO_TYPES.map(function(k){
+      const ic = ({'跑步':'🏃','骑行':'🚴','游泳':'🏊','跳绳':'🤸','椭圆机':'🚣','划船机':'🚣','有氧操':'💃','HIIT':'⚡','快走':'🚶','爬楼':'🪜'})[k] || '🏃';
+      return '<button class="cardio-pick" data-kind="'+k+'" data-act="pickCardioItem" style="padding:18px 8px;border-radius:14px;background:#f1f5f9;border:0;cursor:pointer;text-align:center;"><div style="font-size:32px;">'+ic+'</div><div style="margin-top:6px;font-size:13px;color:#475569;">'+k+'</div></button>';
+    }).join('')}
     </div>
   `);
 }
-function dayAddHistory(dateStr){
+function saveCardioNew(){
+  const s = window._cardioState;
+  const dist = +($('#cd-dist').value || 0);
+  const startStr = $('#cd-start').textContent;
+  const endStr = $('#cd-end').textContent;
+  if(!s || !s.kind){ toast('请选择有氧类型'); return; }
+  const dur = 30; /* 简化 */
+  const wo = {
+    id: uid(),
+    planName: s.kind,
+    date: s.date,
+    startAt: Date.now() - dur*60000,
+    duration: dur*60,
+    paused: 0,
+    volume: 0,
+    items: [],
+    notes: '',
+    type: 'cardio',
+    cardio: {kind:s.kind, distance:dist, kcal: s.kcal||''},
+    cultivationSettled: false
+  };
+  state.workouts.push(wo);
+  state.workouts.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
+  save();
+  if(window._todayEmoji){ wo.mood = window._todayEmoji; save(); }
+  closeSheet();
+  toast('已保存 '+s.date+' 的有氧记录');
+  render();
+}
+/* 旧的有氧/历史入口保留（兼容）*/
+function dayAddHistory_OLD(dateStr){
   const opts = state.plans.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
   const popts = PRESETS.map(p=>`<option value="preset:${p.id}">${escapeHtml(p.name)}（内置）</option>`).join('');
   openSheet(`
@@ -1089,115 +1273,211 @@ function closeBodyDataPage(){
   $('#tabbar').classList.remove('hidden');
   if(currentTab!=='train') $('#topbar').classList.remove('hidden');
 }
+/* v8.11 复刻截图2：身体数据主页（基础数据+身体围度+身体成分+历史趋势） */
 function renderBodyData(){
   const p = state.profile;
   const log = state.bodyLog;
   const latest = log.length ? log[log.length-1] : null;
   const bw = latest ? latest.weight : p.weight;
-  const cell = (k,v,u)=>`<div class="bd-cell"><div class="k">${k}</div><div class="n">${v||'--'}${v?` <span class="u">${u}</span>`:''}</div></div>`;
-
-  // 数据概览
+  const bf = latest && latest.bodyFat ? latest.bodyFat : '';
+  const bmr = latest && latest.bmr ? latest.bmr : '';
+  const ch = latest ? latest.chest : '';
+  const wa = latest ? latest.waist : '';
+  const hi = latest ? latest.hip : '';
+  const sk = latest ? latest.skeletal : '';
+  const vi = latest ? latest.visceral : '';
+  const h = p.height;
+  /* 单元格：数字大字号 + 灰色未设置状态（参考截图2） */
+  const cell = (k,v,u)=>{
+    const has = v !== '' && v != null;
+    return `<div class="bd-cell"><div class="k">${k}</div><div class="n">${has?v:'<span class="not-set">未设置</span>'}${has?` <span class="u">${u}</span>`:''} <span class="bd-arrow">›</span></div></div>`;
+  };
+  /* 数据概览 + 趋势图（参考截图2） */
   let overview = '';
   if(log.length>=2){
     const first = log[0], last = log[log.length-1];
     const dW = (last.weight-first.weight);
-    const dF = (first.bodyFat!==''&&last.bodyFat!==''&&first.bodyFat!=null&&last.bodyFat!=null) ? (last.bodyFat-first.bodyFat) : null;
+    const dF = (first.bodyFat && last.bodyFat) ? (last.bodyFat-first.bodyFat) : null;
     const data = log.slice(-12).map(b=>({label:fmtMD(b.date), value:b.weight}));
     const mini = (function(){
-      const W=280,H=60,pad=4;
+      const W=260,H=80,pad=8;
       const max=Math.max(...data.map(d=>d.value)), min=Math.min(...data.map(d=>d.value));
       const range=max-min||1; const n=data.length;
       const pts=data.map((d,i)=>[pad+(W-pad*2)*(n===1?0:i/(n-1)), H-pad-(H-pad*2)*(d.value-min)/range]);
       const path=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-      const area=path+` L${pts[n-1][0].toFixed(1)} ${H-pad} L${pts[0][0].toFixed(1)} ${H-pad} Z`;
-      return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:60px;display:block;margin-top:8px;">
-        <path d="${area}" fill="rgba(255,255,255,.18)"/><path d="${path}" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-        <circle cx="${pts[n-1][0]}" cy="${pts[n-1][1]}" r="3.5" fill="#fff"/></svg>`;
+      const area=path+' L'+pts[n-1][0].toFixed(1)+' '+H+' L'+pts[0][0].toFixed(1)+' '+H+' Z';
+      return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:80px;display:block;margin-top:8px;">
+        <path d="${area}" fill="rgba(255,255,255,.15)"/><path d="${path}" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${pts[n-1][0]}" cy="${pts[n-1][1]}" r="4" fill="#fff"/></svg>`;
     })();
     overview = `
       <div class="bd-overview">
-        <div class="t1">数据概览 <span class="go">共 ${log.length} 条记录</span></div>
-        <div class="t2">体重变化</div>
-        <div class="big">${dW>=0?'+':''}${dW.toFixed(1)} <span class="u">kg</span></div>
+        <div class="ov-head"><span>数据概览</span><span class="go">共 ${log.length} 条记录</span></div>
+        <div class="ov-row"><div class="ov-k">体重变化</div><div class="ov-v">${dW>=0?'+':''}${dW.toFixed(1)}<span class="u">kg</span></div></div>
         ${mini}
-        <div>
+        <div class="ov-pills">
           <span class="bd-pill">${dW>=0?'↗ 上升':'↘ 下降'}</span>
-          ${dF!==null?`<span class="bd-pill">体脂率 ${dF>=0?'+':''}${dF.toFixed(1)}%</span>`:''}
+          ${dF!==null?'<span class="bd-pill">体脂率 '+(dF>=0?'+':'')+dF.toFixed(1)+'%</span>':''}
           <span class="bd-pill">记录周期 ${fmtMD(first.date)} ~ ${fmtMD(last.date)}</span>
         </div>
       </div>`;
   }
+  /* 历史记录列表 */
   const history = log.slice().reverse().map((b,ri)=>{
     const prev = log[log.length-1-ri-1];
     let delta = '';
     if(prev){
       const d = (b.weight-prev.weight);
-      delta = `<span class="delta ${d>=0?'up':'down'}">${d>=0?'↗ 上升':'↘ 下降'} ${Math.abs(d).toFixed(1)}</span>`;
+      delta = '<span class="delta '+(d>=0?'up':'down')+'">'+(d>=0?'↗ 上升':'↘ 下降')+' '+Math.abs(d).toFixed(1)+'</span>';
     }
     return `<div class="bd-h-item">
-      <div><div class="d">${b.date}${b.date===todayStr()?' · 今天':''}</div><div class="w">${b.weight} <span class="u">kg</span></div>${delta}</div>
+      <div><div class="d">${b.date}${b.date===todayStr()?' · 今天':''}</div>
+        <div class="w">${b.weight} <span class="u">kg</span></div>${delta}</div>
       <button class="bd-h-del" data-act="delBodyLog" data-date="${b.date}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
     </div>`;
   }).join('');
 
   $('#bodydata-view').innerHTML = `
     <div class="bd-hero">
-      <button class="icon-btn" style="background:var(--line);color:var(--text);" data-act="closeBodyData"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <h3 style="margin:0;">身体数据</h3>
+      <button class="icon-btn bd-back" data-act="closeBodyData"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <h3 style="margin:0;flex:1;text-align:center;">身体数据</h3>
       <button class="btn primary sm" data-act="addBodyRecord">添加</button>
     </div>
     <div class="bd-weight-row">
-      <div class="bd-weight"><span class="n">${bw}</span><span class="u">kg</span></div>
-      <button class="icon-btn" style="background:var(--accent-light);color:var(--accent);" data-act="addBodyRecord"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <div class="bd-weight"><span class="n">${bw||'--'}</span><span class="u">kg</span></div>
+      <button class="bd-edit-btn" data-act="addBodyRecord"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 修改</button>
     </div>
     <div class="bd-section">
       <div class="bd-sec-title">基础数据</div>
-      <div class="bd-3grid">
-        ${cell('身高', p.height, 'cm')}
-        ${cell('体脂率', latest&&latest.bodyFat!==''?latest.bodyFat:'', '%')}
-        ${cell('基础代谢', latest?latest.bmr:'', 'kcal')}
-      </div>
+      <div class="bd-3grid">${cell('身高', h, 'cm')}${cell('体脂率', bf, '%')}${cell('基础代谢', bmr, 'kcal')}</div>
       <div class="bd-sec-title">身体围度</div>
-      <div class="bd-3grid">
-        ${cell('胸围', latest?latest.chest:'', 'cm')}
-        ${cell('腰围', latest?latest.waist:'', 'cm')}
-        ${cell('臀围', latest?latest.hip:'', 'cm')}
-      </div>
+      <div class="bd-3grid">${cell('胸围', ch, 'cm')}${cell('腰围', wa, 'cm')}${cell('臀围', hi, 'cm')}</div>
       <div class="bd-sec-title">身体成分</div>
-      <div class="bd-2grid">
-        ${cell('骨骼肌', latest?latest.skeletal:'', 'kg')}
-        ${cell('内脏脂肪', latest?latest.visceral:'', '级')}
-      </div>
+      <div class="bd-3grid">${cell('骨骼肌', sk, 'kg')}${cell('内脏脂肪', vi, '级')}<div></div></div>
     </div>
     ${overview}
-    <div class="bd-section" style="margin-top:6px;"><div class="bd-sec-title">历史记录</div></div>
+    <div class="bd-section" style="margin-top:6px;"><div class="bd-sec-title">历史记录 <span class="bd-history-count">${log.length ? '共 '+log.length+' 条记录' : ''}</span></div></div>
     <div class="bd-history">${history || '<div class="empty">暂无记录，点击右上角「添加」</div>'}</div>
   `;
 }
+/* v8.11 复刻截图4：添加身体数据表单（含身高字段 + 滚轮选择器） */
 function openBodyRecordSheet(){
+  const p = state.profile;
+  const latest = state.bodyLog.length ? state.bodyLog[state.bodyLog.length-1] : {};
+  const cur = (k, d)=>{
+    if(latest && latest[k]!=='' && latest[k]!= null) return latest[k];
+    if(p[k !== 'bmr' && k !== 'bodyFat' ? 'height' : '']) return '';
+    return d||'';
+  };
   openSheet(`
-    <h3>添加身体数据</h3>
-    <div class="field"><label>日期</label><input id="bd-date" type="date" value="${todayStr()}"/></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="field"><label>体重 kg *</label><input id="bd-weight" type="number" step="0.1" value="${lastBodyWeight()}"/></div>
-      <div class="field"><label>体脂率 %</label><input id="bd-fat" type="number" step="0.1"/></div>
-      <div class="field"><label>基础代谢 kcal</label><input id="bd-bmr" type="number"/></div>
-      <div class="field"><label>骨骼肌 kg</label><input id="bd-skel" type="number" step="0.1"/></div>
-      <div class="field"><label>胸围 cm</label><input id="bd-chest" type="number" step="0.1"/></div>
-      <div class="field"><label>腰围 cm</label><input id="bd-waist" type="number" step="0.1"/></div>
-      <div class="field"><label>臀围 cm</label><input id="bd-hip" type="number" step="0.1"/></div>
-      <div class="field"><label>内脏脂肪 级</label><input id="bd-visc" type="number" step="0.5"/></div>
+    <h3 style="display:flex;align-items:center;gap:8px;"><span style="font-size:24px;">📝</span>添加身体数据</h3>
+    <p style="font-size:12px;color:#8fa3bf;margin:-8px 0 12px;">填写后自动算 BMI/FFMI/预估体脂率/灵根<br>记录保存后追加到历史，不覆盖其他日期</p>
+    <div class="bd-form-row">
+      <span class="bd-icon">📅</span>
+      <div class="bd-form-cell"><div class="k">日期</div><div class="v"><input id="bd-date" type="date" value="${todayStr()}"/></div></div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:6px;">
-      <button class="btn block" data-act="closeSheet">取消</button>
-      <button class="btn block primary" data-act="saveBodyData">保存</button>
+    <div class="bd-form-grid">
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">⚖️</span><span class="k">体重 kg *</span></div>
+        <input id="bd-weight" type="number" step="0.1" value="${latest && latest.weight ? latest.weight : (p.weight||'')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">💧</span><span class="k">体脂率 %</span></div>
+        <input id="bd-fat" type="number" step="0.1" value="${cur('bodyFat')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">🔥</span><span class="k">基础代谢 kcal</span></div>
+        <input id="bd-bmr" type="number" value="${cur('bmr')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">📏</span><span class="k">身高 cm <span style="color:#94a3b8;">（点选）</span></span></div>
+        <button id="bd-height-btn" type="button" class="bd-wheel-btn" data-act="wheelHeight" style="cursor:pointer;border:1px solid #475569;background:#1e293b;color:#e2e8f0;border-radius:10px;padding:10px;font-size:14px;text-align:left;width:100%;">${p.height ? p.height : '<span style=\'color:#94a3b8;\'>点击选择身高</span>'}<span style="float:right;color:#94a3b8;">cm</span></button>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">🦴</span><span class="k">骨骼肌 kg</span></div>
+        <input id="bd-skel" type="number" step="0.1" value="${cur('skeletal')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">👕</span><span class="k">胸围 cm</span></div>
+        <input id="bd-chest" type="number" step="0.1" value="${cur('chest')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">📐</span><span class="k">腰围 cm</span></div>
+        <input id="bd-waist" type="number" step="0.1" value="${cur('waist')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">🍑</span><span class="k">臀围 cm</span></div>
+        <input id="bd-hip" type="number" step="0.1" value="${cur('hip')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">❤️</span><span class="k">内脏脂肪 级</span></div>
+        <input id="bd-visc" type="number" step="0.5" value="${cur('visceral')}"/>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn ghost" data-act="closeSheet">取消</button>
+      <button class="btn primary" data-act="saveBodyData">保存</button>
     </div>
   `);
+  /* 身高按钮点击 → 弹复刻截图3的滚轮选择器 */
+  const bh = document.getElementById('bd-height-btn');
+  if(bh){
+    bh.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      openHeightWheel(p.height||170, function(v){
+        bh.innerHTML = v + '<span style="float:right;color:#94a3b8;">cm</span>';
+        bh.dataset.value = v;
+      });
+    });
+  }
 }
 
 /* ============================================================
-   训练流程
+   v8.11 身体数据模块：身高滚轮选择器（复刻截图3）
    ============================================================ */
+function openHeightWheel(currentVal, cb){
+  var values = [];
+  /* 100-230cm，0.5 步长 */
+  for(var v=100; v<=230; v+=0.5) values.push(+v.toFixed(1));
+  var cur = currentVal || 170;
+  var bestIdx = 0, bd = Infinity;
+  values.forEach(function(v, k){ var d = Math.abs(v-cur); if(d<bd){bd=d;bestIdx=k;} });
+  openSheet('<h3 style="text-align:center;margin-bottom:20px;">选择身高</h3>'+
+    '<div class="hw-display">'+
+      '<div class="hw-row"><span class="hw-val" id="hw-val">'+values[bestIdx].toFixed(1)+'</span><span class="hw-unit">cm</span></div>'+
+      '<div class="hw-band"></div>'+
+    '</div>'+
+    '<div class="hw-wheel" id="hw-wheel">'+
+      values.map(function(v,k){ return '<div class="hw-opt '+(k===bestIdx?'cur':'')+'" data-hi="'+k+'">'+(Number.isInteger(v)?v:v.toFixed(1))+'</div>'; }).join('')+
+    '</div>'+
+    '<div style="display:flex;gap:10px;margin-top:14px;">'+
+      '<button class="btn block ghost" data-act="closeSheet">取消</button>'+
+      '<button class="btn block primary" data-act="heightWheelOk">确定</button>'+
+    '</div>');
+  var wheel = document.getElementById('hw-wheel');
+  requestAnimationFrame(function(){ wheel.scrollTop = bestIdx*44; });
+  var st = null;
+  wheel.addEventListener('scroll', function(){
+    clearTimeout(st);
+    st = setTimeout(function(){
+      var idx = Math.max(0, Math.min(values.length-1, Math.round(wheel.scrollTop/44)));
+      document.querySelectorAll('.hw-opt').forEach(function(el,k){ el.classList.toggle('cur', k===idx); });
+      var v = document.getElementById('hw-val');
+      if(v) v.textContent = values[idx].toFixed(1);
+      wheel._idx = idx;
+    }, 80);
+  });
+  /* 确定 */
+  document.addEventListener('click', function _hwOk(e){
+    if(e.target.dataset && e.target.dataset.act === 'heightWheelOk'){
+      e.preventDefault(); e.stopPropagation();
+      var idx = wheel._idx != null ? wheel._idx : bestIdx;
+      cb(values[idx]);
+      document.removeEventListener('click', _hwOk, true);
+      closeSheet();
+    }
+  }, true);
+}
 function startPlan(id, isPreset=false, opts={}){
   let src;
   if(isPreset){
@@ -1656,11 +1936,23 @@ function openFolderEditor(folder=null){
   openSheet(html);
 }
 
-function openSheet(html){
-  $('#sheet').innerHTML = html;
+/* v8.11: openSheet 支持全屏（用于统计点击日期等全屏弹层） */
+function openSheet(html, fullScreen){
+  var sheet = $('#sheet');
+  sheet.innerHTML = html;
+  if(fullScreen){
+    sheet.classList.add('fullscreen-sheet');
+    sheet.classList.remove('hidden');
+  } else {
+    sheet.classList.remove('fullscreen-sheet');
+  }
   $('#overlay').classList.remove('hidden');
 }
-function closeSheet(){ $('#overlay').classList.add('hidden'); }
+function closeSheet(){
+  $('#overlay').classList.add('hidden');
+  var sheet = $('#sheet');
+  if(sheet) sheet.classList.add('hidden');
+}
 
 /* ============================================================
    事件处理
@@ -1903,6 +2195,30 @@ document.addEventListener('click', e=>{
   // Sheet 内通用
   if(a==='closeSheet'){ closeSheet(); return; }
   if(a==='confirmBack'){ closeSheet(); closeWorkout(); return; }
+  /* v8.11 新增事件绑定（统计点击日期/快速记录/有氧记录） */
+  if(a==='viewDay'){ viewDay(act.dataset.date); return; }
+  if(a==='dayAddHistory'){ dayAddHistory(act.dataset.date); return; }
+  if(a==='dayAddCardio'){ dayAddCardio(act.dataset.date); return; }
+  if(a==='quickAddEx'){ quickAddEx(); return; }
+  if(a==='quickFinish'){ quickFinish(); return; }
+  if(a==='quickDelEx'){ quickDelEx(+act.dataset.idx); return; }
+  if(a==='pickCardioKind'){ pickCardioKind(); return; }
+  if(a==='pickCardioItem'){
+    var k = act.dataset.kind;
+    if(window._cardioState){
+      window._cardioState.kind = k;
+      var nameEl = document.getElementById('cd-name');
+      var iconEl = document.getElementById('cd-icon');
+      if(nameEl) nameEl.textContent = k;
+      if(iconEl){
+        var icMap = {'跑步':'🏃','骑行':'🚴','游泳':'🏊','跳绳':'🤸','椭圆机':'🚣','划船机':'🚣','有氧操':'💃','HIIT':'⚡','快走':'🚶','爬楼':'🪜'};
+        iconEl.textContent = icMap[k] || '🏃';
+      }
+    }
+    closeSheet();
+    return;
+  }
+  if(a==='saveCardioNew'){ saveCardioNew(); return; }
   if(a==='saveProfile'){
     state.profile.name = $('#p-name').value;
     state.profile.height = +$('#p-h').value || 170;
@@ -1944,6 +2260,9 @@ document.addEventListener('click', e=>{
   if(a==='saveBodyData'){
     const weight=+$('#bd-weight').value; if(!weight){ toast('请输入体重'); return; }
     const date=$('#bd-date').value||todayStr();
+    /* v8.11: 同步更新身高（bd-height-btn.dataset.value） */
+    const heightBtn = document.getElementById('bd-height-btn');
+    const heightVal = heightBtn && heightBtn.dataset.value ? +heightBtn.dataset.value : 0;
     const entry={
       date, weight,
       bodyFat:$('#bd-fat').value||'',
@@ -1957,6 +2276,11 @@ document.addEventListener('click', e=>{
     const idx=state.bodyLog.findIndex(b=>b.date===date);
     if(idx>=0) state.bodyLog[idx]=Object.assign(state.bodyLog[idx], entry); else state.bodyLog.push(entry);
     state.bodyLog.sort((x,y)=>x.date<y.date?-1:1);
+    /* 同步身高到 profile（首次填写身高时生效） */
+    if(heightVal>0){
+      state.profile = state.profile || {};
+      state.profile.height = heightVal;
+    }
     save(); closeSheet();
     if(!$('#bodydata-view').classList.contains('hidden')) renderBodyData(); else render();
     toast('已保存'); return;
@@ -1971,6 +2295,26 @@ document.addEventListener('click', e=>{
 document.addEventListener('input', e=>{
   if(e.target.id==='ep-input'){ pickerQuery=e.target.value.trim(); renderPicker(); return; }
   if(e.target.id==='lib-search'){ libQuery=e.target.value.trim(); render(); return; }
+});
+
+/* v8.11: 今日状态 emoji 选择（统计页点击日期） */
+document.addEventListener('click', function(e){
+  var em = e.target && e.target.closest ? e.target.closest('.ds-emoji[data-emoji]') : null;
+  if(!em) return;
+  e.stopPropagation();
+  var emo = em.dataset.emoji;
+  window._todayEmoji = emo;
+  document.querySelectorAll('.ds-emoji').forEach(function(x){
+    x.classList.toggle('active', x.dataset.emoji === emo);
+  });
+  var today = todayStr();
+  state.workouts.forEach(function(w){
+    if(w.date === today) w.mood = emo;
+  });
+  state.mood = state.mood || {};
+  state.mood[today] = emo;
+  save();
+  toast('已记录今日状态：' + emo);
 });
 
 // 训练输入实时保存
