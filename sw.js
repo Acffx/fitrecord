@@ -3,7 +3,7 @@
    © 2026 Acffx · 原创 · 保留所有权利
    未经许可禁止商用、二次发布、去除版权标识
    ============================================================ */
-const CACHE = 'fitrecord-v7';
+const CACHE = 'fitrecord-v8';
 const SHELL = [
   '.',
   'index.html',
