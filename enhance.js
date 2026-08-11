@@ -2857,6 +2857,33 @@ render = function(){
 })();
 
 /* ============================================================
+   v8.7 全局错误探针（2026-08-11）—— iOS Safari 白屏诊断
+   捕获任意 JS 错误并显示在页顶，方便用户截图反馈
+   ============================================================ */
+(function(){
+  function showError(msg, file, line, col){
+    try{
+      var box = document.getElementById('err-probe');
+      if(!box){
+        box = document.createElement('div');
+        box.id = 'err-probe';
+        box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ef4444;color:#fff;padding:10px 12px;font-size:12px;font-family:monospace;line-height:1.4;max-height:50vh;overflow:auto;word-break:break-all;';
+        document.body.appendChild(box);
+      }
+      var f = (file||'').split('/').pop();
+      box.innerHTML += '<div style="margin:4px 0;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:4px;">⚠️ <b>'+msg+'</b><br>'+f+':'+line+':'+col+'</div>';
+    }catch(e){}
+  }
+  window.addEventListener('error', function(ev){
+    showError(ev.message||'JS Error', ev.filename, ev.lineno, ev.colno);
+  });
+  window.addEventListener('unhandledrejection', function(ev){
+    var r = ev.reason;
+    showError('Unhandled Promise: '+(r && r.message || r || 'unknown'), '', 0, 0);
+  });
+})();
+
+/* ============================================================
    v8.4 最终防 BUG（2026-08-11）—— 修复统计页面加载失败
    根因：v6.1 第二个 renderStats 包装（2299 行）在 enhance.js 的
         IIFE 内访问 app.js let statsSub，跨 IIFE 不可见 →
@@ -2939,25 +2966,6 @@ try{
   };
 }catch(e){ console.warn('[v8.4] renderStats 兜底包装安装失败', e); }
 
-/* 2. renderHome / renderLibrary / renderMe 同样兜底（防止任何包装抛错白屏） */
-['renderHome','renderLibrary','renderMe'].forEach(function(name){
-  try{
-    var original = (typeof window !== 'undefined' ? window : this)[name] || (function(){ try{ return eval(name); }catch(e){ return null; } })();
-    if(!original) return;
-    /* 用最简 eval 包装 */
-    (function(orig){
-      var fn;
-      try{ fn = eval(name); }catch(_e){ return; }
-      if(!fn) return;
-      var wrapped = function(){
-        try{ return fn.apply(this, arguments); }
-        catch(err){
-          console.warn('[v8.4] '+name+' 失败 → 兜底', err);
-          return '<div style="padding:60px 20px;text-align:center;color:#fbbf24;">页面渲染遇到问题<br><br>'+
-            '<button class="btn primary" onclick="location.reload()" style="padding:10px 24px;background:#7cf0a9;color:#0b1120;border:0;border-radius:10px;font-weight:700;">🔄 刷新重试</button></div>';
-        }
-      };
-      try{ eval(name+' = wrapped;'); }catch(_e){}
-    })(original);
-  }catch(e){}
-});
+/* 2. v8.7 删 v8.4 的 forEach 包装（renderHome/renderLibrary/renderMe） */
+/* 原因：iOS Safari 对 eval(name+' = wrapped') 严格模式抛错，导致 enhance.js 加载失败白屏 */
+/* v8.1 的 render 已经有 try/catch 兜底（先 eval 原版函数调用），不需要重复包装 */
