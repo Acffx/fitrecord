@@ -484,7 +484,6 @@ function renderMain(container){
       '<div class="sec-title">🧬 肉身档案 <span class="sub">核心 6 字段 · 自动算 FFMI/BMI/LBM</span></div>'+
       '<div class="body-card">'+
         bodyGrid + ffmiSummary +
-        '<button class="body-edit" data-act="editBody" style="margin-top:10px;">✏️ 修改身体数据（6 字段）</button>'+
       '</div>'+
       /* ④ 道途 4 卡 */
       '<div class="sec-title">⚔️ 修炼道途 <span class="sub">点击切换</span></div>'+
@@ -494,20 +493,19 @@ function renderMain(container){
       '<div class="dao-modules">'+
         daoSummaryCard('tian', 12)+daoSummaryCard('xuan', 12)+daoSummaryCard('houtu', 11)+
       '</div>'+
-      /* ⑥ 系统说明 */
-      '<div class="sec-title">📖 系统说明</div>'+
-      '<div class="help-card">'+CONFIG.HELP.replace(/\n/g,'<br>')+'</div>'+
-      /* ⑦ 必要功能操作（v8.9 精简到 8 项） */
+      /* ⑥ 系统说明按钮化（v8.10 删除大段文字，只））保留按钮） */
+      '<div class="sec-title">📖 帮助说明</div>'+
+      '<button class="action-btn ghost" data-act="openHelp" style="margin-bottom:14px;">📖 查看系统说明</button>'+
+      /* ⑦ 必要功能操作（v8.10 体测记录红色 + 精简 8 项） */
       '<div class="sec-title">⚙️ 必要功能</div>'+
       '<div class="action-grid">'+
-        '<button class="action-btn ghost" data-act="openBodyData">📊 体测记录</button>'+
+        '<button class="action-btn red" data-act="openBodyData">📊 体测记录</button>'+
         '<button class="action-btn gold" data-act="syncAll">🔄 同步训练修为</button>'+
         '<button class="action-btn ghost" data-act="exportData">📤 导出数据</button>'+
         '<button class="action-btn ghost" data-act="openPerms">🔐 权限说明</button>'+
         '<button class="action-btn ghost" data-act="openAbout">ℹ️ 关于我们</button>'+
         '<button class="action-btn ghost" data-act="openFeedback">💬 意见反馈</button>'+
         '<button class="action-btn ghost" data-act="openPrivacy">🛡️ 隐私协议</button>'+
-        '<button class="action-btn ghost" data-act="openHelp">📖 系统说明</button>'+
       '</div>'+
       '<div style="height:100px;"></div>'+
     '</div>';
@@ -531,7 +529,7 @@ function renderDaoDetail(container, daoKey){
   var list = CONFIG.SKILLS.filter(function(s){ return s.dao===daoKey; });
   var html = '<div class="xc-page">'+
     '<div class="detail-head" style="--dao:'+dao.color+';">'+
-      '<button class="back-btn" data-act="backOverview">‹</button>'+
+      '<button class="back-btn" data-act="backOverview" style="display:flex;align-items:center;gap:4px;padding:8px 14px;border-radius:20px;background:#1a2540;border:1px solid #475569;color:#7cf0a9;font-size:14px;font-weight:700;cursor:pointer;">‹ 返回</button>'+
       '<div><div class="dh-name">'+dao.name+'</div>'+
       '<div class="dh-sub">'+list.length+' 门功法 · 等效力量 '+Math.round(daoForce(daoKey))+'kg</div></div>'+
     '</div>'+
@@ -903,6 +901,13 @@ function injectStyle(){
     '.action-btn.gold{background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;}',
     '.action-btn.ghost{background:#1a2540;color:#e2e8f0;border:1px solid #26314d;}',
     '.action-btn.danger{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid #7f1d1d;}',
+    /* v8.10: 体测记录按钮红色（跟同步训练修为一致醒目） */
+    '.action-btn.red{background:linear-gradient(90deg,#ef4444,#dc2626);color:#fff;border:0;font-weight:800;box-shadow:0 4px 12px rgba(239,68,68,.35);}',
+    /* v8.10: 超级组 set-row 双侧输入样式（参考截图9） */
+    '.set-row-sup .set-val-pair{display:inline-flex;align-items:center;gap:4px;}',
+    '.set-val-pair-item{padding:4px 8px;min-width:42px;height:30px;border-radius:8px;border:1px solid #c7d2fe;background:#eef2ff;color:#312e81;font-size:13px;font-weight:700;font-family:monospace;cursor:pointer;}',
+    '.set-val-pair-item.empty{color:#a8a8a8;border-color:#e5e7eb;background:#f9fafb;}',
+    '.set-val-divider{color:#6366f1;font-weight:700;font-size:14px;}',
     /* v8.8 身体数据历史模块样式 */
     '.bh-row{background:rgba(124,240,169,.04);border:1px solid #1e293b;border-radius:10px;padding:10px;margin-bottom:8px;}',
     '.bh-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}',
