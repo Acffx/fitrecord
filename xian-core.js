@@ -433,27 +433,42 @@ function renderMain(container){
   var b = getBodyLatest() || {};
   var h = num(p.height, 0);
   var w = num(b.weight, 0) || num(p.weight, 0);
-  var chest = num(b.chest, 0);
-  var shoulder = num(xian.body.shoulder, 0) || num(b.shoulder, 0);
-  var arm = num(xian.body.arm, 0) || num(b.arm, 0);
+  var chest = num(b.chest, 0) || num(xian.body.chest, 0);
+  /* v8.15: 优先用最新 bodyLog 数据，再 fallback 到 xian.body 缓存 */
+  var shoulder = num(b.shoulder, 0) || num(xian.body.shoulder, 0);
+  var arm = num(b.arm, 0) || num(xian.body.arm, 0);
   /* 自动计算 BMI */
   var bmi = (h>0 && w>0) ? (w / Math.pow(h/100, 2)) : 0;
   var bmiLevel = !bmi ? '--' : (bmi<18.5?'偏瘦':bmi<24?'正常':bmi<28?'超重':'肥胖');
   /* LBM + 预估体脂率 */
-  var estFat = (cr && cr.estFat) ? cr.estFat*100 : 0;
+  /* v8.15: 修复 — computeFFMI 返回的 estFat 已是百分比数值（2=2%），
+     renderMain 不能再 *100，否则变成 200% 负数 */
+  var estFat = (cr && cr.estFat != null) ? cr.estFat : 0;
   var lbm = (w>0 && estFat>0) ? w*(1-estFat/100) : 0;
 
-  var cell = function(label, val, unit){ return '<div class="bd-cell"><div class="k">'+label+'</div><div class="n">'+ (val||'--') +'<span class="u"> '+ (unit||'') +'</span></div></div>'; };
-  /* 6 字段布局：2 行 × 3 列 */
+  /* v8.15: 胸围/肩宽/臂围支持点击独立编辑（路径A 单项快速修改） */
+  var cell = function(label, val, unit, field){
+    var has = val !== '' && val != null && val !== 0;
+    /* 只允许已知字段触发编辑 */
+    var editable = ['height','weight','chest','shoulder','arm','bodyFat','waist','hip'].indexOf(field) >= 0;
+    if(editable){
+      return '<div class="bd-cell bd-clickable" data-act="bdEditField" data-field="'+field+'">'+
+        '<div class="k">'+label+'</div>'+
+        '<div class="n">'+(has?val:'<span class="not-set">未设置</span>')+(has?('<span class="u"> '+unit+'</span>'):'')+' <span class="bd-arrow">›</span></div>'+
+      '</div>';
+    }
+    return '<div class="bd-cell"><div class="k">'+label+'</div><div class="n">'+(has?val:'<span class="not-set">未设置</span>')+(has?('<span class="u"> '+unit+'</span>'):'')+'</div></div>';
+  };
+  /* 6 字段布局：2 行 × 3 列（自由编辑 + BMI 自动算） */
   var bodyGrid = '<div class="bd-grid-3">'+
-    cell('身高', h, 'cm')+
-    cell('体重', w, 'kg')+
-    cell('BMI', bmi?bmi.toFixed(1):'--', bmiLevel)+
+    cell('身高', h, 'cm', 'height')+
+    cell('体重', w, 'kg', 'weight')+
+    cell('BMI', bmi?bmi.toFixed(1):'--', bmiLevel, 'bmi')+  /* BMI 自动算不可编辑 */
   '</div>'+
   '<div class="bd-grid-3" style="margin-top:8px;">'+
-    cell('胸围', chest, 'cm')+
-    cell('肩宽', shoulder, 'cm')+
-    cell('臂围', arm, 'cm')+
+    cell('胸围', chest, 'cm', 'chest')+
+    cell('肩宽', shoulder, 'cm', 'shoulder')+
+    cell('臂围', arm, 'cm', 'arm')+
   '</div>';
   /* FFMI/LBM/体脂率 + 灵根倍率（参考截图7） */
   var ffmiSummary = '<div class="ffmi-summary">'+
