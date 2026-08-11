@@ -283,4 +283,120 @@
 
 /* 无数据引导（统计/历史） */
 .stat-empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:14px;line-height:1.8;}
+
+/* ============================================================
+   v6：深色模式 + 庆祝动效 + 周报 + 修仙系统
+   ============================================================ */
+
+/* ---------- 深色模式 ---------- */
+html[data-theme="dark"]{
+  --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8;
+  --accent:#3b82f6; --accent-d:#2563eb; --accent-light:#1e3a5f;
+  --line:#334155; --warn-light:#3b2f0e; --shadow:0 2px 12px rgba(0,0,0,.35);
+}
+html[data-theme="dark"] body{background:var(--bg);}
+html[data-theme="dark"] #app{background:var(--bg);}
+html[data-theme="dark"] .folder-card,
+html[data-theme="dark"] .libv2-row,
+html[data-theme="dark"] .ex-card,
+html[data-theme="dark"] .workout-list .ex-card,
+html[data-theme="dark"] .plan-row,
+html[data-theme="dark"] .create-field,
+html[data-theme="dark"] .create-sel,
+html[data-theme="dark"] .create-type,
+html[data-theme="dark"] .set-row{background:var(--card);}
+html[data-theme="dark"] .set-row.warmup-row{background:#3b2f0e;}
+html[data-theme="dark"] .libv2-side{background:#1e293b;}
+html[data-theme="dark"] .libv2-cat.active{background:#0f172a;}
+html[data-theme="dark"] .libv2-search{background:#1e293b;color:var(--text);}
+html[data-theme="dark"] .libv2-search input{color:var(--text);}
+html[data-theme="dark"] .libv2-chip{background:#1e293b;color:var(--text);}
+html[data-theme="dark"] .libv2-chip.active{background:var(--accent);color:#fff;}
+html[data-theme="dark"] .set-val{background:#1e3a5f;color:#93c5fd;}
+html[data-theme="dark"] .set-val.empty{background:#1e293b;color:#64748b;}
+html[data-theme="dark"] .notify-badge{background:var(--card);border-color:var(--line);}
+html[data-theme="dark"] .plan-edit-btn{background:#1e293b;color:var(--muted);}
+html[data-theme="dark"] .rest-chip{background:var(--card);color:var(--text);border-color:var(--line);}
+html[data-theme="dark"] .rest-chip.active{background:var(--accent);color:#fff;}
+html[data-theme="dark"] .ex-menu-item{background:#1e293b;}
+html[data-theme="dark"] .ex-menu-item.hero-item{background:linear-gradient(90deg,#2e1065,#1e3a5f);}
+html[data-theme="dark"] .sort-row{border-color:var(--line);}
+html[data-theme="dark"] .sort-row .sr-btn{background:var(--card);border-color:var(--line);color:var(--accent);}
+html[data-theme="dark"] .sel-item{border-color:var(--line);}
+html[data-theme="dark"] .rpe-chip{background:var(--card);border-color:var(--line);color:var(--text);}
+html[data-theme="dark"] .rpe-chip.hot{background:var(--accent-light);border-color:var(--accent);}
+html[data-theme="dark"] #tabbar{background:var(--card);border-color:var(--line);}
+html[data-theme="dark"] .sugg-row{background:#3b2f0e;}
+html[data-theme="dark"] .set-done-btn{background:var(--card);border-color:var(--line);}
+html[data-theme="dark"] .wheel-wrap{background:#1e293b;}
+html[data-theme="dark"] .wheel-opt{color:#64748b;}
+html[data-theme="dark"] .wheel-opt.cur{color:var(--text);}
+html[data-theme="dark"] .wheel-band{background:#334155;}
+html[data-theme="dark"] .create-view,html[data-theme="dark"] #create-view{background:#0f172a;}
+html[data-theme="dark"] .create-head{background:#0f172a;}
+html[data-theme="dark"] .ex-progress-bar{background:#1e293b;}
+html[data-theme="dark"] .ex-progress-bar-fill{background:var(--accent);}
+html[data-theme="dark"] .date-str,html[data-theme="dark"] .folder-name,html[data-theme="dark"] .plan-row-name{color:var(--text);}
+
+/* 深色模式 switch */
+.theme-row{display:flex;align-items:center;justify-content:space-between;padding:14px 4px;}
+.switch{position:relative;width:50px;height:28px;flex:0 0 auto;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .sl{position:absolute;inset:0;background:#d1d5db;border-radius:28px;transition:.25s;cursor:pointer;}
+.switch .sl::before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.switch input:checked + .sl{background:var(--accent);}
+.switch input:checked + .sl::before{transform:translateX(22px);}
+
+/* ---------- 修仙系统 ---------- */
+.xian-page{padding:12px 16px 20px;}
+.xian-hero{border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:16px;color:#fff;position:relative;overflow:hidden;}
+.xian-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 60%);}
+.xian-realm-ic{font-size:52px;line-height:1;margin-bottom:8px;filter:drop-shadow(0 0 12px rgba(255,255,255,.4));}
+.xian-realm-name{font-size:28px;font-weight:800;letter-spacing:2px;text-shadow:0 0 20px currentColor;}
+.xian-fit{font-size:13px;color:#cbd5e1;margin-top:6px;}
+.xian-desc{font-size:12px;color:#94a3b8;margin-top:4px;}
+.xian-exp-bar{height:10px;background:rgba(255,255,255,.15);border-radius:10px;margin:16px 0 8px;overflow:hidden;}
+.xian-exp-fill{height:100%;border-radius:10px;transition:width .4s ease;box-shadow:0 0 10px currentColor;}
+.xian-exp-text{font-size:12px;color:#cbd5e1;font-variant-numeric:tabular-nums;}
+.xian-section{background:var(--card);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow);}
+.xian-sec-title{font-size:15px;font-weight:800;margin-bottom:10px;display:flex;align-items:baseline;gap:8px;}
+.xian-sec-sub{font-size:11px;color:var(--muted);font-weight:400;}
+.xian-realms{display:flex;flex-wrap:wrap;gap:8px;}
+.xian-realm-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:#f8fafc;font-size:12px;color:var(--muted);}
+html[data-theme="dark"] .xian-realm-chip{background:#1e293b;}
+.xian-realm-chip.done{color:#22c55e;border-color:#22c55e55;background:#22c55e11;}
+.xian-realm-chip.cur{font-weight:800;box-shadow:0 0 8px currentColor44;}
+.gf-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+.gf-row:last-child{border-bottom:0;}
+.gf-row.gf-cur{background:var(--accent-light);border-radius:10px;padding:9px 8px;border-bottom:0;}
+.gf-ic{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1e293b,#334155);color:#fbbf24;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;}
+.gf-info{flex:1;min-width:0;}
+.gf-name{font-size:13px;font-weight:700;}
+.gf-bar{height:5px;background:#e5e7eb;border-radius:5px;margin-top:5px;overflow:hidden;}
+html[data-theme="dark"] .gf-bar{background:#334155;}
+.gf-bar-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:5px;}
+.gf-lv{font-size:12px;color:var(--accent);font-weight:700;flex:0 0 auto;}
+.pr-item{padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.pr-item:last-child{border-bottom:0;}
+.pr-item.muted{color:var(--muted);}
+.fb-card{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;padding:14px;color:#fff;}
+.fb-ic{font-size:32px;}
+.fb-info{flex:1;min-width:0;}
+.fb-name{font-size:14px;font-weight:700;color:#fbbf24;}
+.fb-desc{font-size:11px;color:#94a3b8;margin-top:3px;line-height:1.5;}
+.fb-btn{background:linear-gradient(90deg,#f59e0b,#ef4444);border:0;border-radius:12px;color:#fff;font-weight:700;padding:10px 18px;font-size:14px;}
+.fb-stats{font-size:11px;color:var(--muted);margin-top:10px;text-align:center;}
+/* 副本游戏 */
+.xian-game{text-align:center;}
+.xg-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:12px;}
+.xg-area{position:relative;height:300px;background:linear-gradient(180deg,#0f172a,#1e293b);border-radius:16px;overflow:hidden;touch-action:none;}
+.xg-tip{font-size:11px;color:var(--muted);margin-top:10px;}
+.xg-ball{position:absolute;border-radius:50%;cursor:pointer;box-shadow:0 0 12px currentColor;transition:transform .1s;}
+.xg-ball:active{transform:scale(1.3);}
+@keyframes xg-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+
+/* ---------- 周报分享图 ---------- */
+.week-report-btn{width:100%;padding:12px;border-radius:12px;border:0;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;font-weight:700;font-size:14px;margin:4px 0 12px;cursor:pointer;}
+.report-canvas-wrap{width:100%;border-radius:14px;overflow:hidden;background:#0f172a;}
+#report-canvas{width:100%;height:auto;display:block;}
 .create-upload .cam svg{display:block;}
