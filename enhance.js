@@ -1750,6 +1750,323 @@ document.addEventListener('click', e=>{
 });
 
 /* ============================================================
+   v6.1 修仙系统大改造（2026-08-11）
+   ① 自适应境界定位（按历史训练数据）
+   ② 人物角色 + 灵气光环持续动画
+   ③ 打怪闯关副本
+   ④ 功法按容量+次数双重升级
+   ============================================================ */
+
+/* ---------- ① 自适应境界定位 ---------- */
+function xianAutoLevel(){
+  const ws = state.workouts || [];
+  if(!ws.length) return null;
+  const total = ws.length;
+  const totalVol = ws.reduce((n,w)=>n+(w.volume||0),0);
+  const maxWeight = Math.max(0, ...ws.flatMap(w=>w.items.flatMap(it=>it.sets.map(s=>+s.weight||0))));
+  const prCount = ws.reduce((n,w)=>n+(w.prs||[]).length,0);
+  // 综合评分：训练次数×1 + 容量/1000 + 最大重量×10 + PR数×50
+  const score = total + totalVol/1000 + maxWeight*10 + prCount*50;
+  let realm = 0;
+  if(score >= 200) realm = 1;        // 炼气
+  if(score >= 800) realm = 2;        // 筑基
+  if(score >= 2000) realm = 3;       // 金丹
+  if(score >= 5000) realm = 4;       // 元婴
+  if(score >= 12000) realm = 5;      // 化神
+  if(score >= 25000) realm = 6;      // 炼虚
+  if(score >= 55000) realm = 7;      // 合体
+  if(score >= 110000) realm = 8;     // 大乘
+  if(score >= 220000) realm = 9;     // 渡劫
+  if(score >= 500000) realm = 10;    // 飞升
+  return {realm, stage:1, exp:0};
+}
+function xianInit(){
+  const x = xianState();
+  if(!x.initialized){
+    const auto = xianAutoLevel();
+    if(auto){
+      const prev = {realm:x.realm, stage:x.stage};
+      x.realm = auto.realm;
+      x.stage = auto.stage;
+      x.exp = auto.exp;
+      x.initialized = true;
+      if(auto.realm > prev.realm){
+        setTimeout(()=>toast('🧭 仙根已定：'+XIAN_REALMS[auto.realm].name+'（'+XIAN_REALMS[auto.realm].fit+'）'), 600);
+      }
+    } else {
+      x.initialized = true;
+    }
+    // 首次：从历史 workouts 回填 partExp（按容量累计）
+    (state.workouts||[]).forEach(w=>{
+      (w.items||[]).forEach(it=>{
+        const v = (it.sets||[]).reduce((s,set)=>s+(+set.weight||0)*(+set.reps||0),0);
+        if(v>0){
+          x.partExp[it.part] = (x.partExp[it.part]||0) + v;
+          const lvl = Math.min(10, Math.floor((x.partExp[it.part]/1000))+1);
+          if((x.partLv[it.part]||0) < lvl) x.partLv[it.part] = lvl;
+        }
+      });
+    });
+    save();
+  }
+}
+
+/* ---------- ② 功法容量升级（覆盖 v6 版本） ---------- */
+function xianPartGrow(part, vol){
+  const x = xianState();
+  const key = part || '全身';
+  if(vol > 0) x.partExp[key] = (x.partExp[key]||0) + vol;
+  // 升级：每 1000kg 累计容量 = 1 层（最多 10 层）
+  const lvl = Math.min(10, Math.floor((x.partExp[key]||0)/1000) + 1);
+  if(lvl > (x.partLv[key]||0)){
+    x.partLv[key] = lvl;
+    const g = XIAN_PARTS[key];
+    if(g) toast('📜 '+g.gongfa+' 突破至第'+lvl+'层');
+  }
+}
+function xianGainFromSet(it, set){
+  const wt = +set.weight||0, rp = +set.reps||0;
+  const gain = Math.max(2, Math.round((wt*rp)/10));
+  xianAddExp(gain, '修炼');
+  if(wt>0 && rp>0) xianPartGrow(it.part, wt*rp);
+}
+
+/* ---------- ③ 渲染人物动画 + 境界体系（覆盖 v6） ---------- */
+function xianCharHTML(realm){
+  // 修真者形象：随境界变化（头部表情+身体）+灵气光环
+  const charEmoji = [xianState().realm, xianState().stage].join('-');
+  // 修真者外形随境界变化
+  let bodyIcon;
+  if(realm.realm <= 1) bodyIcon = '🌱';          // 引气/炼气：幼苗
+  else if(realm.realm <= 3) bodyIcon = '🧘';     // 筑基/金丹：修士打坐
+  else if(realm.realm <= 5) bodyIcon = '👨‍🎓';   // 元婴/化神：修真者
+  else if(realm.realm <= 7) bodyIcon = '⚔️';     // 炼虚/合体：剑修
+  else if(realm.realm <= 9) bodyIcon = '🐉';     // 大乘/渡劫：龙气护体
+  else bodyIcon = '👑';                            // 飞升：飞升成仙
+  return `
+    <div class="xian-stage" style="--rc:${realm.color};">
+      <div class="xian-bg-particles"></div>
+      <div class="xian-aura-rings">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+      </div>
+      <div class="xian-character">
+        <div class="xc-body">${bodyIcon}</div>
+        <div class="xc-glow"></div>
+        <div class="xc-aura">${realm.icon}</div>
+      </div>
+      <div class="xian-souls"></div>
+      <div class="xian-realm-name" style="color:${realm.color};">${xianTitle()}</div>
+      <div class="xian-fit">对应：${realm.fit}</div>
+      <div class="xian-desc">${realm.desc}</div>
+      <div class="xian-exp-bar">
+        <div class="xian-exp-fill" style="width:${Math.min(100, Math.round(xianState().exp/xianExpNeed(xianState())*100))}%;background:${realm.color};"></div>
+      </div>
+      <div class="xian-exp-text">修为 ${xianState().exp}/${xianExpNeed(xianState())} · 总修为 ${xianState().totalExp||0}</div>
+    </div>
+  `;
+}
+
+function renderCultivation(){
+  xianInit();
+  const x = xianState();
+  const {realm, stage} = xianCur();
+  const need = xianExpNeed(x);
+  const pct = Math.min(100, Math.round(x.exp/need*100));
+  const r = realm;
+  // 功法列表：显示容量进度 + 等级
+  const gongfaRows = Object.keys(XIAN_PARTS).map(k=>{
+    const exp = x.partExp[k]||0;
+    const lvl = Math.min(10, Math.floor(exp/1000)+1);
+    const p = ((exp%1000)/1000)*100;
+    const lv10 = (lvl >= 10);
+    const isCur = session && session.items.some(it=>it.part===k);
+    const g = XIAN_PARTS[k];
+    return `<div class="gf-row ${isCur?'gf-cur':''}">
+      <div class="gf-ic">${g.icon}</div>
+      <div class="gf-info">
+        <div class="gf-name">${k} · ${g.gongfa}</div>
+        <div class="gf-bar"><div class="gf-bar-fill" style="width:${p}%"></div></div>
+        <div class="gf-meta">${Math.round(exp)}/1000 kg · 第${lvl}层${lv10?' · 圆满':''}</div>
+      </div>
+      <div class="gf-lv">${gongfaLevelName(lvl)}</div>
+    </div>`;
+  }).join('');
+
+  const recentPR = state.workouts.slice(-5).reverse().map(w=>{
+    const prs = w.prs||[];
+    return prs.length ? `<div class="pr-item">🏅 ${escapeHtml(w.planName)} · ${prs[0].name} ${prs[0].value}${prs[0].type==='weight'?'kg':'kg(1RM)'}</div>` : '';
+  }).filter(Boolean).join('') || '<div class="pr-item muted">暂无纪录，去突破重量吧！</div>';
+
+  return `
+    <div class="xian-page">
+      ${xianCharHTML(r)}
+
+      <div class="xian-section">
+        <div class="xian-sec-title">🧭 境界体系 <span class="xian-sec-sub">按历史训练自动定位</span></div>
+        <div class="xian-realms">
+          ${XIAN_REALMS.map((rr,i)=>`
+            <div class="xian-realm-chip ${i===x.realm?'cur':(i<x.realm?'done':'')}" style="${i===x.realm?`border-color:${rr.color};color:${rr.color};`:''}">
+              ${i<x.realm?'✓':rr.icon} ${rr.name}
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">📜 功法修为 <span class="xian-sec-sub">每 1000kg 容量升一层</span></div>
+        ${gongfaRows}
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">🏅 突破纪录 <span class="xian-sec-sub">突破重量=突破修为（+30修为）</span></div>
+        ${recentPR}
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">⚔️ 闯关副本 <span class="xian-sec-sub">修真者 VS 妖魔，30秒击败15怪即为通关</span></div>
+        <div class="fb-card">
+          <div class="fb-ic">⚔️</div>
+          <div class="fb-info">
+            <div class="fb-name">妖魔讨伐 · 修真出山</div>
+            <div class="fb-desc">修真者发射灵力弹攻击妖魔，自动射击 + 点击大招，每杀一怪 +3 修为</div>
+          </div>
+          <button class="fb-btn" data-act="xianPlay">出战</button>
+        </div>
+        <div class="fb-stats">已通关 ${x.wins||0} 次 · 游玩 ${x.playCount||0} 次 · 最佳 ${x.bestKills||0} 击杀</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- ④ 打怪副本（覆盖 v6） ---------- */
+function xianPlay(){
+  openSheet(`
+    <div class="xian-game">
+      <div class="xg-head">
+        <span>⚔️ 妖魔讨伐 · <span id="xg-time">30</span>s</span>
+        <span>击败 <span id="xg-kills">0</span> 怪</span>
+      </div>
+      <div class="xg-stage" id="xg-stage">
+        <div class="xg-floor"></div>
+        <div class="xg-hero" id="xg-hero">🧘</div>
+      </div>
+      <div class="xg-tap-tip">点击场地释放绝技大招 · 自动射击已开启</div>
+    </div>
+  `);
+  const stage = $('#xg-stage');
+  const hero = $('#xg-hero');
+  let time = 30, kills = 0;
+  const monsters = ['👹','👺','💀','👻','🐲','🦇','🐍','🦂','👽','🧟'];
+  // 移动英雄到 hero 当前 offsetLeft
+  let heroLeft = (stage.offsetWidth - 60)/2;
+  hero.style.left = heroLeft + 'px';
+
+  // 点击场地：大招（全屏横扫）
+  const doBigShot = ()=>{
+    if(time<=0) return;
+    const flash = document.createElement('div');
+    flash.className = 'xg-bigshot';
+    stage.appendChild(flash);
+    setTimeout(()=>flash.remove(), 400);
+    stage.querySelectorAll('.xg-monster').forEach(m=>{
+      kills++;
+      $('#xg-kills').textContent = kills;
+      xianAddExp(3, '击杀');
+      const fx = document.createElement('div');
+      fx.className = 'xg-hitfx';
+      fx.textContent = '💥';
+      fx.style.left = m.style.left;
+      fx.style.top = m.style.top;
+      stage.appendChild(fx);
+      setTimeout(()=>fx.remove(), 350);
+      m.remove();
+    });
+  };
+  stage.addEventListener('click', doBigShot);
+
+  // 自动射击：每 1s 发射一颗灵力弹
+  const shotIv = setInterval(()=>{
+    if(time<=0) return;
+    if(!stage.isConnected) return;
+    const b = document.createElement('div');
+    b.className = 'xg-bullet';
+    b.textContent = '⚡';
+    b.style.left = (hero.offsetLeft + 24) + 'px';
+    b.style.bottom = '40px';
+    stage.appendChild(b);
+    let y = 40;
+    const mv = setInterval(()=>{
+      if(!b.parentNode){ clearInterval(mv); return; }
+      y += 7;
+      b.style.bottom = y + 'px';
+      if(y > stage.offsetHeight - 40){ b.remove(); clearInterval(mv); return; }
+      // 命中检测
+      stage.querySelectorAll('.xg-monster').forEach(m=>{
+        const mr = m.getBoundingClientRect(), br = b.getBoundingClientRect();
+        if(br.left < mr.right && br.right > mr.left && br.top < mr.bottom && br.bottom > mr.top){
+          m.remove(); b.remove(); clearInterval(mv);
+          kills++;
+          $('#xg-kills').textContent = kills;
+          xianAddExp(3, '击杀');
+          const fx = document.createElement('div');
+          fx.className = 'xg-hitfx';
+          fx.textContent = '💥';
+          fx.style.left = m.style.left;
+          fx.style.top = m.style.top;
+          stage.appendChild(fx);
+          setTimeout(()=>fx.remove(), 350);
+        }
+      });
+    }, 40);
+  }, 1000);
+
+  // 生成怪物
+  const spawnIv = setInterval(()=>{
+    if(time<=0) return;
+    if(!stage.isConnected) return;
+    const m = document.createElement('div');
+    m.className = 'xg-monster';
+    m.textContent = monsters[Math.floor(Math.random()*monsters.length)];
+    m.style.left = (10 + Math.random()*(stage.offsetWidth - 50)) + 'px';
+    m.style.top = '-40px';
+    m.style.fontSize = (24 + Math.random()*12) + 'px';
+    stage.appendChild(m);
+    // 下落
+    const fallIv = setInterval(()=>{
+      if(!m.parentNode || !stage.isConnected){ clearInterval(fallIv); return; }
+      let t = parseFloat(m.style.top||'-40');
+      t += 1.4;
+      m.style.top = t + 'px';
+      // 到达底部则撞到英雄（不扣血，简单版）
+      if(t > stage.offsetHeight - 60){ m.remove(); clearInterval(fallIv); }
+    }, 50);
+  }, 700);
+
+  // 倒计时
+  const tv = setInterval(()=>{
+    time--;
+    $('#xg-time').textContent = time;
+    if(time<=0){
+      clearInterval(shotIv); clearInterval(spawnIv); clearInterval(tv);
+      stage.removeEventListener('click', doBigShot);
+      const x = xianState();
+      x.playCount = (x.playCount||0) + 1;
+      if(kills >= 15){ x.wins = (x.wins||0) + 1; }
+      if(kills > (x.bestKills||0)) x.bestKills = kills;
+      xianAddExp(kills*3, '副本通关');
+      save();
+      setTimeout(()=>{
+        closeSheet();
+        const verdict = kills>=15 ? '🏆 通关！' : '💪 再接再厉';
+        toast(verdict+' 击败 '+kills+' 妖魔，+'+kills*3+' 修为');
+        confettiBurst();
+      }, 500);
+    }
+  }, 1000);
+}
+
+/* ============================================================
    v5.1 增量：bug 修复 + 体验优化（2026-08-11）
    ============================================================ */
 
