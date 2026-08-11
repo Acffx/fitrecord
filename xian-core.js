@@ -527,11 +527,12 @@ function daoGridHTML(){
 function renderDaoDetail(container, daoKey){
   var dao = CONFIG.DAOS[daoKey];
   var list = CONFIG.SKILLS.filter(function(s){ return s.dao===daoKey; });
+  /* v8.11: 返回按钮单独一行，标题下一行（不重叠） */
   var html = '<div class="xc-page">'+
-    '<div class="detail-head" style="--dao:'+dao.color+';">'+
-      '<button class="back-btn" data-act="backOverview" style="display:flex;align-items:center;gap:4px;padding:8px 14px;border-radius:20px;background:#1a2540;border:1px solid #475569;color:#7cf0a9;font-size:14px;font-weight:700;cursor:pointer;">‹ 返回</button>'+
-      '<div><div class="dh-name">'+dao.name+'</div>'+
-      '<div class="dh-sub">'+list.length+' 门功法 · 等效力量 '+Math.round(daoForce(daoKey))+'kg</div></div>'+
+    '<div class="detail-head" style="--dao:'+dao.color+';display:block;padding:14px;">'+
+      '<button class="back-btn" data-act="backOverview" style="display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:20px;background:#1a2540;border:1px solid #475569;color:#7cf0a9;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;">‹ 返回功法总览</button>'+
+      '<div class="dh-name" style="font-size:18px;font-weight:800;color:#e2e8f0;">'+dao.name+'</div>'+
+      '<div class="dh-sub" style="font-size:12px;color:#8fa3bf;margin-top:2px;">'+list.length+' 门功法 · 等效力量 '+Math.round(daoForce(daoKey))+'kg</div>'+
     '</div>'+
     '<div class="skills-list">'+list.map(skillCard).join('')+'</div>'+
     '<div style="height:80px;"></div></div>';
