@@ -2851,3 +2851,109 @@ render = function(){
     if(t){ try{ history.replaceState(null, '', '#'+t); }catch(err){} }
   });
 })();
+
+/* ============================================================
+   v8.4 最终防 BUG（2026-08-11）—— 修复统计页面加载失败
+   根因：v6.1 第二个 renderStats 包装（2299 行）在 enhance.js 的
+        IIFE 内访问 app.js let statsSub，跨 IIFE 不可见 →
+        ReferenceError → stats tab 抛错全白屏
+   修复：v8.4 追加权威 renderStats/renderHome 覆盖，
+        不调用任何跨 IIFE 变量，直接读 state 渲染
+   ============================================================ */
+
+/* 1. renderStats 权威版（兜底所有失败链路，无任何跨 IIFE 依赖） */
+try{
+  var _v84_baseStats = renderStats;
+  renderStats = function(){
+    /* 检查上层包装是否安全 */
+    var body = String(_v84_baseStats);
+    var usesCrossIIFE = body.indexOf('statsSub') !== -1;
+    if(!usesCrossIIFE){
+      try{
+        var out = _v84_baseStats();
+        if(out && out.indexOf && out.indexOf('cal-day') !== -1) return out;
+      }catch(e){
+        console.warn('[v8.4] 上层 renderStats 调用失败，降级到内联版', e);
+      }
+    }
+    /* === 内联版：纯本地变量，零跨 IIFE 依赖 === */
+    var html = '';
+    try{
+      var safe = (typeof state !== 'undefined' && state) ? state : {workouts:[],plans:[],folders:[],customEx:[],profile:{height:170},bodyLog:[]};
+      if(!safe.workouts) safe.workouts = [];
+      var now = new Date();
+      var y = now.getFullYear(), m = now.getMonth();
+      try{ if(typeof statsMonth !== 'undefined' && statsMonth){ y = statsMonth.getFullYear(); m = statsMonth.getMonth(); } }catch(_e){}
+      var monthKey = y+'-'+String(m+1).padStart(2,'0');
+      var monthWorkouts = safe.workouts.filter(function(w){ return w && typeof w.date === 'string' && w.date.indexOf(monthKey) === 0; });
+      var firstDay = new Date(y,m,1).getDay();
+      var daysInMonth = new Date(y,m+1,0).getDate();
+      var today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+      var byDate = {};
+      monthWorkouts.forEach(function(w){ if(w.date) (byDate[w.date] = byDate[w.date]||[]).push(w); });
+      var cells = '';
+      for(var i=0;i<firstDay;i++) cells += '<div></div>';
+      for(var d=1; d<=daysInMonth; d++){
+        var ds = monthKey+'-'+String(d).padStart(2,'0');
+        var list = byDate[ds]||[];
+        var cls = (list.length?'has-workout ':'') + (ds===today?'today':'');
+        var tip = list.length ? list.length+' 次训练' : '';
+        cells += '<div class="cal-day '+cls+'" '+(tip?'title="'+tip+'"':'')+'>'+d+'</div>';
+      }
+      var totalWorkouts = safe.workouts.length;
+      var totalSec = safe.workouts.reduce(function(a,w){ return a+(+w.duration||0); }, 0);
+      var vol = safe.workouts.reduce(function(a,w){ return a+(+w.volume||0); }, 0);
+      var days = Object.keys(byDate).length;
+      html =
+        '<div class="page-title">统计</div>'+
+        '<div style="display:flex;gap:6px;margin:8px 0 12px;padding:10px;background:rgba(124,240,169,.06);border-radius:10px;">'+
+          '<div style="flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#7cf0a9;">'+totalWorkouts+'</div><div style="font-size:11px;color:#8fa3bf;">总训练</div></div>'+
+          '<div style="flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#7cf0a9;">'+days+'</div><div style="font-size:11px;color:#8fa3bf;">本月天数</div></div>'+
+          '<div style="flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#7cf0a9;">'+Math.round(totalSec/60)+'</div><div style="font-size:11px;color:#8fa3bf;">总分钟</div></div>'+
+          '<div style="flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#7cf0a9;">'+Math.round(vol)+'</div><div style="font-size:11px;color:#8fa3bf;">总容量 kg</div></div>'+
+        '</div>'+
+        '<div style="display:flex;gap:10px;margin:2px 0 12px;">'+
+          '<button class="week-report-btn" style="flex:1;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;border:0;padding:12px;border-radius:12px;font-weight:700;" data-act="weekReport">📊 本周周报</button>'+
+          '<button class="week-report-btn" style="flex:1;background:linear-gradient(90deg,#8b5cf6,#6366f1);color:#fff;border:0;padding:12px;border-radius:12px;font-weight:700;" data-act="monthReport">📈 本月月报</button>'+
+        '</div>'+
+        '<div class="month-row" style="margin-bottom:10px;font-weight:700;font-size:15px;color:#e5e7eb;">'+(m+1)+'月</div>'+
+        '<div class="calendar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">'+cells+'</div>'+
+        (totalWorkouts===0
+          ? '<div class="stat-empty" style="padding:40px 20px;text-align:center;color:#8fa3bf;font-size:14px;line-height:1.8;">'+
+            '<div style="font-size:40px;margin-bottom:10px;">📊</div>'+
+            '还没有训练记录<br>完成第一次训练后，这里会展示你的<br>历史记录、热力图与训练统计'+
+            '</div>'
+          : '');
+    }catch(innerErr){
+      console.error('[v8.4] renderStats 内联失败：', innerErr);
+      html = '<div class="page-title">统计</div><div style="padding:60px 20px;text-align:center;color:#fbbf24;">'+
+        '统计加载遇到小问题<br><br>'+
+        '<button class="btn primary" onclick="location.reload()" style="padding:10px 24px;background:#7cf0a9;color:#0b1120;border:0;border-radius:10px;font-weight:700;">🔄 刷新重试</button>'+
+        '</div>';
+    }
+    return html;
+  };
+}catch(e){ console.warn('[v8.4] renderStats 兜底包装安装失败', e); }
+
+/* 2. renderHome / renderLibrary / renderMe 同样兜底（防止任何包装抛错白屏） */
+['renderHome','renderLibrary','renderMe'].forEach(function(name){
+  try{
+    var original = (typeof window !== 'undefined' ? window : this)[name] || (function(){ try{ return eval(name); }catch(e){ return null; } })();
+    if(!original) return;
+    /* 用最简 eval 包装 */
+    (function(orig){
+      var fn;
+      try{ fn = eval(name); }catch(_e){ return; }
+      if(!fn) return;
+      var wrapped = function(){
+        try{ return fn.apply(this, arguments); }
+        catch(err){
+          console.warn('[v8.4] '+name+' 失败 → 兜底', err);
+          return '<div style="padding:60px 20px;text-align:center;color:#fbbf24;">页面渲染遇到问题<br><br>'+
+            '<button class="btn primary" onclick="location.reload()" style="padding:10px 24px;background:#7cf0a9;color:#0b1120;border:0;border-radius:10px;font-weight:700;">🔄 刷新重试</button></div>';
+        }
+      };
+      try{ eval(name+' = wrapped;'); }catch(_e){}
+    })(original);
+  }catch(e){}
+});
