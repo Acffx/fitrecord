@@ -1217,12 +1217,536 @@ function endDrag(){
   toast('顺序已更新');
 }
 
-/* ---------- sheet 上方空白点击关闭 ---------- */
+/* ---------- sheet 上方空白点击关闭（v5 功能，v6 保留） ---------- */
 $('#overlay').addEventListener('click', e=>{
   if(e.target === e.currentTarget){
-    if(state && state.sheetLock){ closeSheet(); state.sheetLock = false; return; }
     closeSheet();
   }
+});
+
+/* ============================================================
+   v6 增量：深色模式 + 庆祝动效 + 周报 + 修仙系统（2026-08-11）
+   ============================================================ */
+
+/* ---------- 深色模式：初始化 + 跟随系统 + 开关 ---------- */
+(function(){
+  const KEY = 'fitrecord_theme';
+  function applyTheme(mode){
+    if(mode === 'dark') document.documentElement.setAttribute('data-theme','dark');
+    else if(mode === 'light') document.documentElement.removeAttribute('data-theme');
+    else {
+      const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if(dark) document.documentElement.setAttribute('data-theme','dark');
+      else document.documentElement.removeAttribute('data-theme');
+    }
+    try{ localStorage.setItem(KEY, mode || ''); }catch(e){}
+  }
+  let themeMode = null;
+  try{ themeMode = localStorage.getItem(KEY) || null; }catch(e){}
+  if(themeMode !== 'dark' && themeMode !== 'light') themeMode = null;
+  applyTheme(themeMode);
+  if(window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e=>{
+      if(!themeMode) applyTheme(null);
+    });
+  }
+  window.__setTheme = function(mode){ themeMode = mode; applyTheme(mode); };
+
+  /* 「我的」页加主题开关（包装 renderMe） */
+  const _renderMeBase3 = renderMe;
+  renderMe = function(){
+    const html = _renderMeBase3();
+    const cur = themeMode || 'auto';
+    const toggle = `
+      <div class="theme-row" style="background:var(--card);border-radius:14px;padding:14px;margin:12px 0;box-shadow:var(--shadow);">
+        <div>
+          <div style="font-weight:700;">🌗 深色模式</div>
+          <div style="font-size:12px;color:var(--muted);">夜间训练不刺眼 · 跟随系统 / 手动</div>
+        </div>
+        <select data-act="themeSelect" style="border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;background:var(--card);color:var(--text);">
+          <option value="auto" ${cur==='auto'?'selected':''}>跟随系统</option>
+          <option value="light" ${cur==='light'?'selected':''}>浅色</option>
+          <option value="dark" ${cur==='dark'?'selected':''}>深色</option>
+        </select>
+      </div>`;
+    const marker = '<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:8px;">👀 本站访问';
+    if(html.indexOf(marker) !== -1) html = html.replace(marker, toggle + '\n' + marker);
+    else html += '\n' + toggle;
+    return html;
+  };
+})();
+document.addEventListener('change', e=>{
+  if(e.target && e.target.dataset && e.target.dataset.act === 'themeSelect'){
+    window.__setTheme(e.target.value);
+    render();
+    toast('主题已切换');
+  }
+});
+
+/* ---------- 训练完成庆祝动效 ---------- */
+function confettiBurst(){
+  const colors = ['#f59e0b','#ef4444','#3b82f6','#22c55e','#ec4899','#8b5cf6','#14b8a6'];
+  const layer = document.createElement('div');
+  layer.style.cssText = 'position:fixed;inset:0;z-index:999;pointer-events:none;overflow:hidden;';
+  document.body.appendChild(layer);
+  const N = 90;
+  for(let i=0;i<N;i++){
+    const p = document.createElement('div');
+    const size = 6 + Math.random()*8;
+    const left = Math.random()*100;
+    const dur = 1.6 + Math.random()*1.4;
+    const delay = Math.random()*0.4;
+    const c = colors[Math.floor(Math.random()*colors.length)];
+    const shape = Math.random()>0.5 ? 'border-radius:50%;' : '';
+    p.style.cssText = `position:absolute;left:${left}%;top:-20px;width:${size}px;height:${size*0.55}px;background:${c};${shape}opacity:.95;animation:confetti-fall ${dur}s ease-in ${delay}s forwards;`;
+    p.innerHTML = '';
+    layer.appendChild(p);
+  }
+  setTimeout(()=>{ layer.remove(); }, 3400);
+}
+/* 注入 keyframes（一次性） */
+if(!document.getElementById('confetti-style')){
+  const st = document.createElement('style');
+  st.id = 'confetti-style';
+  st.textContent = '@keyframes confetti-fall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:.4}}';
+  document.head.appendChild(st);
+}
+
+/* 完成训练时放彩带（包装 finishWorkout 链尾） */
+(function(){
+  const base = finishWorkout;
+  finishWorkout = function(){
+    const ret = base();
+    setTimeout(confettiBurst, 120);
+    return ret;
+  };
+})();
+
+/* ============================================================
+   修仙成就系统（v6）：境界 · 功法 · 副本 · 国风特效
+   ============================================================ */
+const XIAN_REALMS = [
+  {name:'引气入体', fit:'健身小白',  stage:9,  icon:'🌱', color:'#84cc16', desc:'初入仙途，凡体未脱'},
+  {name:'炼气',     fit:'新手入门',  stage:9,  icon:'💨', color:'#22c55e', desc:'气入百骸，身轻体健'},
+  {name:'筑基',     fit:'初级健身者',stage:9,  icon:'🪨', color:'#14b8a6', desc:'道基初成，筋骨渐强'},
+  {name:'金丹',     fit:'进阶健身者',stage:9,  icon:'✨', color:'#eab308', desc:'金丹凝成，力量初显'},
+  {name:'元婴',     fit:'中级训练者',stage:9,  icon:'👶', color:'#f59e0b', desc:'元婴破壳，力能扛鼎'},
+  {name:'化神',     fit:'高级训练者',stage:9,  icon:'🔥', color:'#ef4444', desc:'神念化形，举重若轻'},
+  {name:'炼虚',     fit:'资深健身者',stage:9,  icon:'⚡', color:'#8b5cf6', desc:'虚实相生，百炼成钢'},
+  {name:'合体',     fit:'精英运动员',stage:9,  icon:'👑', color:'#ec4899', desc:'灵肉合一，力随意动'},
+  {name:'大乘',     fit:'专业运动员',stage:9,  icon:'🐉', color:'#dc2626', desc:'大道将成，天下无双'},
+  {name:'渡劫',     fit:'准健体冠军',stage:9,  icon:'🌩️', color:'#6366f1', desc:'雷劫临身，一飞冲天'},
+  {name:'飞升',     fit:'健体冠军',  stage:1,  icon:'🏆', color:'#fbbf24', desc:'肉身成圣，仙凡永隔'},
+];
+const XIAN_PARTS = {
+  '胸':   {gongfa:'金刚伏魔诀', icon:'🛡️', desc:'胸肌为盾，硬桥硬马'},
+  '背':   {gongfa:'龙象般若功', icon:'🐲', desc:'背阔如翼，力大无穷'},
+  '肩':   {gongfa:'星辰锻体诀', icon:'🌟', desc:'肩承日月，稳如泰山'},
+  '手臂': {gongfa:'玄铁臂法',   icon:'⚙️', desc:'铁臂如枪，力贯千钧'},
+  '腿':   {gongfa:'地脉踏天功', icon:'⛰️', desc:'双腿如桩，踏碎山河'},
+  '臀':   {gongfa:'蛮荒力体术', icon:'🐘', desc:'臀部为炉，爆发之源'},
+  '核心': {gongfa:'玄武守元功', icon:'🐢', desc:'核心如鼎，固本培元'},
+  '有氧': {gongfa:'风灵步法',   icon:'💨', desc:'身法如风，耐力绵长'},
+  '拉伸': {gongfa:'柔水诀',     icon:'💧', desc:'柔能克刚，舒展筋骨'},
+};
+function xianState(){ return state.xian || (state.xian = {realm:0, stage:1, exp:0, totalExp:0, partLv:{}, prCount:0, wins:0, playCount:0}); }
+function xianCur(){
+  const x = xianState();
+  const realm = XIAN_REALMS[x.realm];
+  return {x, realm, stage: Math.min(x.stage, realm.stage)};
+}
+function xianExpNeed(x){ return 40 + x.realm * 30 + (x.stage-1) * 8; }
+function xianTitle(){
+  const {x, realm, stage} = xianCur();
+  return stage >= realm.stage ? realm.name + '圆满' : realm.name + '·' + stage + (x.realm===0?'层':'重');
+}
+function xianAddExp(n, reason){
+  const x = xianState();
+  x.exp += n; x.totalExp += n;
+  let leveled = false;
+  while(x.exp >= xianExpNeed(x)){
+    x.exp -= xianExpNeed(x);
+    x.stage++;
+    const r = XIAN_REALMS[x.realm];
+    if(x.stage > r.stage){
+      x.stage = 1; x.realm++;
+      if(x.realm >= XIAN_REALMS.length){ x.realm = XIAN_REALMS.length-1; x.stage = 1; x.exp = 0; break; }
+      leveled = true;
+      const nr = XIAN_REALMS[x.realm];
+      try{navigator.vibrate && navigator.vibrate([60,40,60]);}catch(e){}
+      toast('✨ 突破！' + xianTitle() + '（' + nr.fit + '）');
+      confettiBurst();
+    } else {
+      leveled = true;
+      toast('🧘 ' + xianTitle() + ' 修为精进');
+    }
+  }
+  save();
+  return leveled;
+}
+function xianPartGrow(part){
+  const x = xianState();
+  const key = part || '全身';
+  x.partLv[key] = (x.partLv[key]||0) + 1;
+  const g = XIAN_PARTS[key];
+  if(g && x.partLv[key] % 10 === 0) toast('📜 功法「'+g.gongfa+'」突破第'+(x.partLv[key]/10)+'层');
+}
+function xianGainFromSet(it, set){
+  // 完成一组：修为 + 重量*次数/10
+  const wt = +set.weight||0, rp = +set.reps||0;
+  const gain = Math.max(2, Math.round((wt*rp)/10));
+  xianAddExp(gain, '修炼');
+  if(wt>0) xianPartGrow(it.part);
+}
+function xianOnPR(){
+  const x = xianState();
+  x.prCount = (x.prCount||0)+1;
+  xianAddExp(30, '突破纪录');
+}
+
+/* 渲染修仙页 */
+function renderCultivation(){
+  const x = xianState();
+  const {realm, stage} = xianCur();
+  const need = xianExpNeed(x);
+  const pct = Math.min(100, Math.round(x.exp/need*100));
+  const r = realm;
+  // 功法列表（按部位进度排序）
+  const gongfaRows = Object.keys(XIAN_PARTS).map(k=>{
+    const lv = x.partLv[k]||0;
+    const g = XIAN_PARTS[k];
+    const lvl = Math.floor(lv/10)+1;
+    const p = lv%10;
+    const isCur = session && session.items.some(it=>it.part===k);
+    return `<div class="gf-row ${isCur?'gf-cur':''}">
+      <div class="gf-ic">${g.icon}</div>
+      <div class="gf-info">
+        <div class="gf-name">${k} · ${g.gongfa}</div>
+        <div class="gf-bar"><div class="gf-bar-fill" style="width:${(lv%10)*10}%"></div></div>
+      </div>
+      <div class="gf-lv">${gongfaLevelName(lvl)}</div>
+    </div>`;
+  }).join('');
+
+  const recentPR = state.workouts.slice(-5).reverse().map(w=>{
+    const prs = w.prs||[];
+    return prs.length ? `<div class="pr-item">🏅 ${escapeHtml(w.planName)} · ${prs[0].name} ${prs[0].value}${prs[0].type==='weight'?'kg':'kg(1RM)'}</div>` : '';
+  }).filter(Boolean).join('') || '<div class="pr-item muted">暂无纪录，去突破重量吧！</div>';
+
+  return `
+    <div class="xian-page">
+      <div class="xian-hero" style="background:linear-gradient(160deg,${r.color}33,#0f172a 70%);border-top:2px solid ${r.color}66;">
+        <div class="xian-realm-ic">${r.icon}</div>
+        <div class="xian-realm-name" style="color:${r.color};">${xianTitle()}</div>
+        <div class="xian-fit">对应：${r.fit}</div>
+        <div class="xian-desc">${r.desc}</div>
+        <div class="xian-exp-bar">
+          <div class="xian-exp-fill" style="width:${pct}%;background:${r.color};"></div>
+        </div>
+        <div class="xian-exp-text">修为 ${x.exp}/${need} · 总修为 ${x.totalExp}</div>
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">🧭 境界体系 <span class="xian-sec-sub">按你的健身进度修炼</span></div>
+        <div class="xian-realms">
+          ${XIAN_REALMS.map((rr,i)=>`
+            <div class="xian-realm-chip ${i===x.realm?'cur':(i<x.realm?'done':'')}" style="${i===x.realm?`border-color:${rr.color};color:${rr.color};`:''}">
+              ${i<x.realm?'✓':rr.icon} ${rr.name}
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">📜 功法修为 <span class="xian-sec-sub">部位练得多，功法等级越高</span></div>
+        ${gongfaRows}
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">🏅 突破纪录 <span class="xian-sec-sub">突破重量=突破修为（+30修为）</span></div>
+        ${recentPR}
+      </div>
+
+      <div class="xian-section">
+        <div class="xian-sec-title">⚔️ 仙途副本 <span class="xian-sec-sub">解压小游戏，赢修为</span></div>
+        <div class="fb-card">
+          <div class="fb-ic">🗡️</div>
+          <div class="fb-info">
+            <div class="fb-name">灵气收集 · 凝神静气</div>
+            <div class="fb-desc">30秒内点吸收集飘散的灵气，每朵+2修为，集满20朵额外+20</div>
+          </div>
+          <button class="fb-btn" data-act="xianPlay">进入</button>
+        </div>
+        <div class="fb-stats">已通关 ${x.wins||0} 次 · 游玩 ${x.playCount||0} 次 · 纪录 ${x.bestScore||0} 朵</div>
+      </div>
+    </div>
+  `;
+}
+function gongfaLevelName(l){
+  if(l>=10) return '圆满';
+  const names=['一层','二层','三层','四层','五层','六层','七层','八层','九层','大圆满'];
+  return names[l-1]||'未知';
+}
+
+/* 副本小游戏：灵气收集 */
+let xianGame = null;
+function xianPlay(){
+  openSheet(`
+    <div class="xian-game">
+      <div class="xg-head">
+        <span>🗡️ 灵气收集 · <span id="xg-time">30</span>s</span>
+        <span id="xg-score">0 朵</span>
+      </div>
+      <div class="xg-area" id="xg-area"></div>
+      <div class="xg-tip">点击飘动的灵气珠吸收！</div>
+    </div>
+  `);
+  const area = $('#xg-area');
+  const timeEl = $('#xg-time');
+  const scoreEl = $('#xg-score');
+  let time = 30, score = 0;
+  const colors = ['#84cc16','#22c55e','#14b8a6','#eab308','#8b5cf6','#f59e0b'];
+  const spawn = ()=>{
+    if(!area || time<=0) return;
+    const ball = document.createElement('div');
+    ball.className = 'xg-ball';
+    const size = 26 + Math.random()*22;
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    ball.style.cssText = `width:${size}px;height:${size}px;background:radial-gradient(circle at 30% 30%, #fff3, ${color});left:${Math.random()*90}%;top:${Math.random()*90}%;animation:xg-float ${2+Math.random()*2}s ease-in-out infinite;`;
+    ball.addEventListener('click', e=>{
+      e.stopPropagation();
+      score++;
+      scoreEl.textContent = score + ' 朵';
+      ball.remove();
+      xianAddExp(2, '灵气');
+      if(score===20) toast('🌪️ 灵气风暴！+20修为');
+    });
+    area.appendChild(ball);
+    setTimeout(()=>{ if(ball.parentNode) ball.remove(); }, 3000);
+  };
+  const iv = setInterval(spawn, 400);
+  const tv = setInterval(()=>{
+    time--;
+    timeEl.textContent = time;
+    if(time<=0){
+      clearInterval(iv); clearInterval(tv);
+      const x = xianState();
+      x.playCount++;
+      if(score>=(x.bestScore||0)) x.bestScore = score;
+      let extra = 0;
+      if(score>=20){ extra = 20; x.wins++; }
+      xianAddExp(score*2 + extra, '副本通关');
+      save();
+      setTimeout(()=>{
+        closeSheet();
+        toast('🏆 本次吸收 '+score+' 朵灵气'+(extra?'，额外 +'+extra:''));
+      }, 500);
+    }
+  }, 1000);
+}
+
+/* 事件挂接：修仙 tab + 副本 + 完成组/PR 修为 */
+(function(){
+  const baseSetTab = setTab;
+  setTab = function(tab){
+    const ret = baseSetTab(tab);
+    if(tab === 'cultivation'){ $('#topbar').classList.add('hidden'); }
+    return ret;
+  };
+  const baseRender = render;
+  render = function(){
+    if(currentTab === 'cultivation'){
+      $('#view').innerHTML = renderCultivation();
+      return;
+    }
+    return baseRender();
+  };
+})();
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act]');
+  if(!act) return;
+  const a = act.dataset.act;
+  if(a === 'xianPlay'){ xianPlay(); return; }
+  if(a === 'doneSet'){
+    const i=+act.dataset.ex, j=+act.dataset.set;
+    // 修为：完成一组（值在 app.js 处理后再触发）
+    setTimeout(()=>{
+      if(session && session.items[i] && session.items[i].sets[j] && session.items[i].sets[j].done){
+        xianGainFromSet(session.items[i], session.items[i].sets[j]);
+      }
+    }, 30);
+    return;
+  }
+});
+/* PR 修为（包装 checkSetPR 内 toast 之外，这里检测 PR 事件） */
+(function(){
+  const base = checkSetPR;
+  checkSetPR = function(it, set){
+    const before = state.xian ? state.xian.prCount : 0;
+    const ret = base(it, set);
+    const after = state.xian ? state.xian.prCount : 0;
+    if(after > before) xianOnPR();
+    return ret;
+  };
+})();
+
+/* ============================================================
+   周报 / 月报分享图（canvas 生成，可保存分享）
+   ============================================================ */
+function weekReportCanvas(period){
+  // period: 'week' | 'month'
+  const now = new Date();
+  let start, label;
+  if(period === 'week'){
+    const dow = (now.getDay()+6)%7; // 周一为0
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate()-dow);
+    label = '本周训练周报';
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    label = '本月训练月报';
+  }
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+  const ws = state.workouts.filter(w=>{
+    const d = new Date(w.date+'T12:00:00');
+    return d >= start && d < end;
+  });
+  // 统计
+  const days = new Set(ws.map(w=>w.date)).size;
+  const count = ws.length;
+  const totalSec = ws.reduce((n,w)=>n+(w.duration||0),0);
+  const volume = ws.reduce((n,w)=>n+(w.volume||0),0);
+  const partVol = {};
+  ws.forEach(w=>w.items.forEach(it=>{
+    const v = it.sets.reduce((s,set)=>s+(+set.weight||0)*(+set.reps||0),0);
+    partVol[it.part] = (partVol[it.part]||0)+v;
+  }));
+  // 画布
+  const cv = document.createElement('canvas');
+  const W = 720, H = 980;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  // 背景
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0f172a'); g.addColorStop(1,'#1e3a5f');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  // 装饰星点
+  for(let i=0;i<60;i++){
+    ctx.fillStyle = 'rgba(255,255,255,'+(Math.random()*0.35+0.05)+')';
+    ctx.beginPath(); ctx.arc(Math.random()*W, Math.random()*H, Math.random()*1.6+0.3, 0, 7); ctx.fill();
+  }
+  // 标题
+  ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 46px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, W/2, 90);
+  // 日期范围
+  ctx.fillStyle = '#94a3b8'; ctx.font = '22px "PingFang SC",sans-serif';
+  ctx.fillText((start.getMonth()+1)+'月'+start.getDate()+'日 — '+now.getMonth()+1+'月'+now.getDate()+'日', W/2, 130);
+  ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(60,160); ctx.lineTo(W-60,160); ctx.stroke();
+  // 核心数据
+  const items = [
+    {v: count, k:'训练次数', unit:'次'},
+    {v: days, k:'训练天数', unit:'天'},
+    {v: Math.round(totalSec/60), k:'总时长', unit:'分钟'},
+    {v: Math.round(volume), k:'总容量', unit:'kg'},
+  ];
+  const cardW = 300, cardH = 110, gap = 20, x0 = (W-2*cardW-gap)/2, y0 = 200;
+  items.forEach((it,idx)=>{
+    const cx = x0 + (idx%2)*(cardW+gap), cy = y0 + Math.floor(idx/2)*(cardH+gap);
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    roundRect(ctx, cx, cy, cardW, cardH, 18); ctx.fill();
+    ctx.strokeStyle = 'rgba(251,191,36,.35)'; ctx.lineWidth = 1.5;
+    roundRect(ctx, cx, cy, cardW, cardH, 18); ctx.stroke();
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 42px "PingFang SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(it.v), cx+cardW/2, cy+62);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '20px "PingFang SC",sans-serif';
+    ctx.fillText(it.k+'（'+it.unit+'）', cx+cardW/2, cy+92);
+  });
+  // 部位分布
+  const yTitle = y0+2*cardH+gap+40;
+  ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 26px "PingFang SC",sans-serif';
+  ctx.textAlign = 'left'; ctx.fillText('训练部位分布', 60, yTitle);
+  const parts = Object.keys(partVol).sort((a,b)=>partVol[b]-partVol[a]).slice(0,6);
+  const maxV = parts.length ? partVol[parts[0]] : 1;
+  parts.forEach((p,i)=>{
+    const by = yTitle + 44 + i*56;
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '20px "PingFang SC",sans-serif';
+    ctx.fillText(p, 60, by+16);
+    ctx.fillStyle = 'rgba(255,255,255,.1)';
+    roundRect(ctx, 160, by-8, 420, 28, 14); ctx.fill();
+    const w = Math.max(14, 420*partVol[p]/maxV);
+    const bg = ctx.createLinearGradient(160,0,160+w,0);
+    bg.addColorStop(0,'#f59e0b'); bg.addColorStop(1,'#ef4444');
+    ctx.fillStyle = bg;
+    roundRect(ctx, 160, by-8, w, 28, 14); ctx.fill();
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 18px "PingFang SC",sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(partVol[p])+'kg', 590, by+16);
+    ctx.textAlign = 'left';
+  });
+  // 底部激励语
+  ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '20px "PingFang SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('—— FitRecord · 每一次训练都算数 ——', W/2, H-50);
+  return cv;
+}
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+function openWeekReport(period){
+  const cv = weekReportCanvas(period);
+  const dataUrl = cv.toDataURL('image/png');
+  openSheet(`
+    <h3 style="text-align:center;">${period==='week'?'本周训练周报':'本月训练月报'}</h3>
+    <div class="report-canvas-wrap"><img id="report-canvas" src="${dataUrl}" alt="训练周报"/></div>
+    <p style="font-size:12px;color:var(--muted);text-align:center;margin:10px 0;">长按图片保存到手机，可分享到朋友圈/小红书</p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn block" data-act="closeSheet">关闭</button>
+      <button class="btn block primary" data-act="downloadReport">保存图片</button>
+    </div>
+  `);
+}
+/* 保存图片 */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="downloadReport"]');
+  if(!act) return;
+  e.stopPropagation(); e.preventDefault();
+  const img = $('#report-canvas');
+  if(!img) return;
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = 'fitrecord_report.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast('图片已保存（iOS 请长按保存）');
+}, true);
+/* 统计页加周报/月报入口 */
+(function(){
+  const base = renderStats;
+  renderStats = function(){
+    const html = base();
+    const btnHtml = `
+      <div style="display:flex;gap:10px;margin:2px 0 12px;">
+        <button class="week-report-btn" style="flex:1;" data-act="weekReport">📊 本周周报</button>
+        <button class="week-report-btn" style="flex:1;background:linear-gradient(90deg,#8b5cf6,#6366f1);" data-act="monthReport">📈 本月月报</button>
+      </div>`;
+    const marker = '<div class="month-row">';
+    if(html.indexOf(marker) !== -1) html = html.replace(marker, btnHtml + marker);
+    return html;
+  };
+})();
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act]');
+  if(!act) return;
+  if(act.dataset.act === 'weekReport'){ openWeekReport('week'); return; }
+  if(act.dataset.act === 'monthReport'){ openWeekReport('month'); return; }
 });
 
 /* ============================================================
