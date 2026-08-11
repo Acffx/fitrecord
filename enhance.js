@@ -2645,19 +2645,21 @@ try{ document.head && document.head.appendChild(xianStageStyle); }catch(e){}
 /* ---------- setTab 权威版（同步渲染，无延迟，无 opacity 归零） ---------- */
 /* 直接重定义 setTab：同步渲染 + 保留 tabbar */
 setTab = function(tab){
+  /* "我的" tab 已删除（v8.5 融合到仙途底部），点 me 自动跳仙途 */
+  if(tab === 'me') tab = 'cultivation';
   currentTab = tab;
   $$('#tabbar .tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
   /* topbar：训练/动作库/修仙页隐藏（修仙页用页内布局） */
   $('#topbar').classList.toggle('hidden', tab === 'train' || tab === 'library' || tab === 'cultivation');
   if(tab !== 'train' && tab !== 'library' && tab !== 'cultivation'){
-    var titles = {stats:'统计', me:'我的'};
+    var titles = {stats:'统计'};
     $('#topbar-title').textContent = titles[tab] || 'FitRecord';
   }
   /* tabbar 始终可见（训练进行中会由训练视图自己隐藏） */
   $('#tabbar').classList.remove('hidden');
   render();
   /* 兼容 busuanzi 访问统计（原包装被覆盖后手动补） */
-  if(tab === 'me'){
+  if(tab === 'cultivation'){
     setTimeout(function(){
       try{
         if(typeof refreshBusuanzi === 'function') refreshBusuanzi();
@@ -2692,7 +2694,9 @@ render = function(){
     if(currentTab === 'train'){ $('#view').innerHTML = renderHome(); }
     else if(currentTab === 'library'){ $('#view').innerHTML = renderLibrary(); }
     else if(currentTab === 'stats'){ $('#view').innerHTML = renderStats(); }
-    else if(currentTab === 'me'){ $('#view').innerHTML = renderMe(); }
+    /* "我的" tab 已删除（v8.5 融合到仙途底部）：me 兜底走仙途 */
+    else if(currentTab === 'me'){ setTab('cultivation'); return; }
+    else if(currentTab === 'cultivation'){ /* 仙途渲染在函数顶部已处理 */ }
     else { $('#view').innerHTML = renderHome(); }
   }catch(e){
     /* 兜底：直接用 app.js 原版函数重新渲染（绕过任何 enhance 包装） */
@@ -2815,7 +2819,7 @@ render = function(){
   function applyHash(){
     try{
       var h = (location.hash || '').replace('#','').toLowerCase();
-      var map = {train:'train', library:'library', stats:'stats', me:'me', cultivation:'cultivation', xian:'cultivation', fitrecord:'train'};
+      var map = {train:'train', library:'library', stats:'stats', me:'cultivation', cultivation:'cultivation', xian:'cultivation', xiantu:'cultivation', fitrecord:'train'};
       var tab = map[h] || (h||null);
       if(tab && typeof setTab === 'function' && tab !== currentTab){
         setTab(tab);
