@@ -357,16 +357,8 @@ function saveCreateEx(){
 function renderWorkoutList(){
   const list = $('#workout-list');
   if(!session) return;
-  /* v8.9: 超级组并排展示 - 跳过作为"配对右边"的项（i 是 i-1 的 supersetWith）*/
-  const skipIdx = new Set();
-  session.items.forEach((it, i)=>{
-    if(it.supersetWith !== null && it.supersetWith !== undefined && it.supersetWith < i){
-      skipIdx.add(i);
-    }
-  });
+  /* v8.12: 超级组已弃用，单卡渲染 */
   list.innerHTML = session.items.map((it,i)=>{
-    if(skipIdx.has(i)) return ''; // 跳过超级组配对的右侧
-    const isLeftOfPair = (it.supersetWith !== null && it.supersetWith !== undefined && it.supersetWith > i);
     const last = lastSetsForEx(it.exId);
     const sugg = suggestForEx(it.exId);
     const unit = it.lb ? 'LB' : 'KG';
@@ -376,31 +368,12 @@ function renderWorkoutList(){
     const restTag = it.restSec>0 ? `<span class="tag grey" style="margin-left:4px;">休息${it.restSec}s</span>` : '';
     const supTag = it.supersetWith!==null && it.supersetWith!==undefined ? `<span class="tag warn" style="margin-left:4px;">超级组</span>` : '';
     const notesTag = it.notes ? `<div style="font-size:11px;color:var(--accent);padding:2px 0 4px 4px;">📝 ${escapeHtml(it.notes)}</div>` : '';
-    const isSupCard = (it.supersetWith !== null && it.supersetWith !== undefined);
+    const isSupCard = false; /* v8.12 弃用：超级组功能删除 */
     const rows = it.sets.map((s,j)=>{
       const refSet = last && last.sets[j];
       const wTxt = (s.weight!==''&&s.weight!==null&&s.weight!==undefined&&+s.weight>0) ? conv(s.weight) : (refSet?conv(refSet.weight):'0');
       const rTxt = (+s.reps>0) ? s.reps : (refSet?refSet.reps:'0');
       const wEmpty = !(+s.weight>0), rEmpty = !(+s.reps>0);
-      /* v8.10: 超级组每组双重量双次数（左右侧训练） */
-      const w2 = s._w2;
-      const r2 = s._r2;
-      const w2Txt = (w2!==''&&w2!==null&&w2!==undefined&&+w2>0) ? conv(w2) : '0';
-      const r2Txt = (+r2>0) ? r2 : '0';
-      const w2Empty = !(+w2>0), r2Empty = !(+r2>0);
-      const valPairHtml = isSupCard
-        ? '<div class="set-val-pair">'+
-            '<button class="set-val-pair-item ${wEmpty?"empty":""}" data-act="wheelW" data-ex="'+i+'" data-set="'+j+'">'+wTxt+'</button>'+
-            '<span class="set-val-divider">/</span>'+
-            '<button class="set-val-pair-item ${w2Empty?"empty":""}" data-act="wheelW2" data-ex="'+i+'" data-set="'+j+'">'+w2Txt+'</button>'+
-          '</div>'+
-          '<div class="set-val-pair">'+
-            '<button class="set-val-pair-item ${rEmpty?"empty":""}" data-act="wheelR" data-ex="'+i+'" data-set="'+j+'">'+rTxt+'</button>'+
-            '<span class="set-val-divider">/</span>'+
-            '<button class="set-val-pair-item ${r2Empty?"empty":""}" data-act="wheelR2" data-ex="'+i+'" data-set="'+j+'">'+r2Txt+'</button>'+
-          '</div>'
-        : '<button class="set-val ${wEmpty?"empty":""}" data-act="wheelW" data-ex="'+i+'" data-set="'+j+'">'+wTxt+'</button>'+
-          '<button class="set-val ${rEmpty?"empty":""}" data-act="wheelR" data-ex="'+i+'" data-set="'+j+'">'+rTxt+'</button>';
       return `
       <div class="set-swipe">
         <div class="set-actions">
@@ -414,9 +387,10 @@ function renderWorkoutList(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>删除
           </button>
         </div>
-        <div class="set-row ${s.warmup?'warmup-row':''} ${isSupCard?'set-row-sup':''}">
+        <div class="set-row ${s.warmup?'warmup-row':''}">
           <span class="set-no">${j+1}${s.warmup?'<span class="wu">热身</span>':''}</span>
-          ${valPairHtml}
+          <button class="set-val ${wEmpty?'empty':''}" data-act="wheelW" data-ex="${i}" data-set="${j}">${wTxt}</button>
+          <button class="set-val ${rEmpty?'empty':''}" data-act="wheelR" data-ex="${i}" data-set="${j}">${rTxt}</button>
           <button class="rpe-btn ${s.rpe?'hot':''}" data-act="rpeOpen" data-ex="${i}" data-set="${j}">${s.rpe||'—'}</button>
           <button class="set-done-btn ${s.done?'completed':''}" data-act="doneSet" data-ex="${i}" data-set="${j}">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -431,48 +405,6 @@ function renderWorkoutList(){
       it, exObj, i, unit, conv, last, sugg, collapsedCls,
       supTag, restTag, notesTag, refHtml, suggHtml, rows
     });
-    if(isLeftOfPair){
-      const j = it.supersetWith;
-      const it2 = session.items[j];
-      const ex2 = resolveEx(it2.exId) || it2;
-      const last2 = lastSetsForEx(it2.exId);
-      const sugg2 = suggestForEx(it2.exId);
-      const conv2 = w => it2.lb ? (w/0.4536).toFixed(1) : w;
-      const rows2 = it2.sets.map((s,k)=>{
-        const refSet = last2 && last2.sets[k];
-        const wTxt = (+s.weight>0) ? conv2(s.weight) : (refSet?conv2(refSet.weight):'0');
-        const rTxt = (+s.reps>0) ? s.reps : (refSet?refSet.reps:'0');
-        return `
-        <div class="set-swipe">
-          <div class="set-actions">
-            <button class="sa-copy" data-act="setCopyDown" data-ex="${j}" data-set="${k}">复制</button>
-            <button class="sa-warm" data-act="setWarmup" data-ex="${j}" data-set="${k}">${s.warmup?'取消热身':'热身组'}</button>
-            <button class="sa-del" data-act="setDelConfirm" data-ex="${j}" data-set="${k}">删除</button>
-          </div>
-          <div class="set-row ${s.warmup?'warmup-row':''}">
-            <span class="set-no">${k+1}${s.warmup?'<span class="wu">热身</span>':''}</span>
-            <button class="set-val" data-act="wheelW" data-ex="${j}" data-set="${k}">${wTxt}</button>
-            <button class="set-val" data-act="wheelR" data-ex="${j}" data-set="${k}">${rTxt}</button>
-            <button class="rpe-btn" data-act="rpeOpen" data-ex="${j}" data-set="${k}">${s.rpe||'—'}</button>
-            <button class="set-done-btn ${s.done?'completed':''}" data-act="doneSet" data-ex="${j}" data-set="${k}">✓</button>
-            <button class="set-act-btn" data-act="setMenu" data-ex="${j}" data-set="${k}">⋮</button>
-          </div>
-        </div>`;
-      }).join('');
-      const card2HTML = renderSingleExCard({
-        it: it2, exObj: ex2, i: j, unit: it2.lb?'LB':'KG',
-        conv: conv2, last: last2, sugg: sugg2,
-        collapsedCls: (state.collapsedEx && state.collapsedEx[it2.exId]) ? ' collapsed' : '',
-        supTag: '<span class="tag warn" style="margin-left:4px;font-size:10px;">超级组</span>',
-        restTag: it2.restSec>0 ? '<span class="tag grey" style="margin-left:4px;">休息'+it2.restSec+'s</span>' : '',
-        notesTag: it2.notes ? '<div style="font-size:11px;color:var(--accent);padding:2px 0 4px 4px;">📝 '+escapeHtml(it2.notes)+'</div>' : '',
-        refHtml: last2 ? '<div class="prev-ref">上次（'+fmtMD(last2.date)+'）：'+last2.sets.map(s=>conv2(s.weight)+'×'+s.reps).join(' / ')+'<button class="fill-last" data-act="fillLast" data-ex="'+j+'">填入上次</button></div>' : '',
-        suggHtml: sugg2 ? '<div class="sugg-row">⚡ 自动进阶：'+conv2(sugg2.weight)+(it2.lb?'LB':'KG')+' × '+sugg2.reps+'（'+sugg2.reason+'）<button data-act="applySugg" data-ex="'+j+'">应用</button></div>' : '',
-        rows: rows2,
-        compact: true
-      });
-      return '<div class="superset-pair" data-pair="'+i+'-'+j+'">'+cardHTML+card2HTML+'</div>';
-    }
     return cardHTML;
   }).join('');
   // 重新绑定折叠 / 长按拖动
@@ -562,25 +494,13 @@ function openWheelFor(i, j, field){
       renderWorkoutList();
     });
   } else if(field==='_w2'){
-    /* v8.10: 超级组双重量第二值（左侧/右侧训练） */
-    const unit = it.lb ? 'LB' : 'KG';
-    const conv = w => it.lb ? (w/0.4536) : w;
-    const step = it.lb ? 5 : 2.5;
-    const max = it.lb ? 445 : 200;
-    const values = [];
-    for(let v=0; v<=max; v+=step) values.push(+v.toFixed(1));
-    const cur = (+s._w2>0) ? conv(+s._w2) : 0;
-    openWheel('第'+(j+1)+'组 · '+it.name+' (右侧)', unit, values, cur, v=>{
-      s._w2 = it.lb ? +(v*0.4536).toFixed(1) : v;
-      renderWorkoutList();
-    });
+    /* v8.12 弃用：超级组功能删除，但兼容老数据（不报错） */
+    toast('该字段已弃用');
+    return;
   } else if(field==='_r2'){
-    const values = [];
-    for(let v=1; v<=100; v++) values.push(v);
-    openWheel('第'+(j+1)+'组 · '+it.name+' (右侧)', '次', values, +s._r2||12, v=>{
-      s._r2 = v;
-      renderWorkoutList();
-    });
+    /* v8.12 弃用 */
+    toast('该字段已弃用');
+    return;
   }
 }
 
@@ -676,11 +596,6 @@ function openExMenu(i){
       <div class="ex-menu-item" data-act="exLB" data-ex="${i}">
         <div class="ex-menu-ic" style="background:#f0f9ff;color:#0ea5e9;">⚖️</div>
         <div class="ex-menu-t"><div class="n">${it.lb?'修改为KG':'修改为LB'}</div><div class="s">将本动作重量单位切换为${it.lb?'千克':'磅'}</div></div>
-        <span class="ex-menu-arrow">›</span>
-      </div>
-      <div class="ex-menu-item" data-act="exSuperset" data-ex="${i}">
-        <div class="ex-menu-ic" style="background:#fdf2f8;color:#ec4899;">🔗</div>
-        <div class="ex-menu-t"><div class="n">${isSup?'取消超级组':'超级组'}</div><div class="s">${isSup?'解除与相邻动作的组合':'将两个力量动作组合为超级组'}</div></div>
         <span class="ex-menu-arrow">›</span>
       </div>
     </div>
@@ -902,9 +817,7 @@ document.addEventListener('click', e=>{
   // 滚轮
   if(a==='wheelW'){ openWheelFor(+act.dataset.ex, +act.dataset.set, 'weight'); return; }
   if(a==='wheelR'){ openWheelFor(+act.dataset.ex, +act.dataset.set, 'reps'); return; }
-  /* v8.10: 超级组双重量/双次数（左右侧训练） */
-  if(a==='wheelW2'){ openWheelFor(+act.dataset.ex, +act.dataset.set, '_w2'); return; }
-  if(a==='wheelR2'){ openWheelFor(+act.dataset.ex, +act.dataset.set, '_r2'); return; }
+  /* v8.12 删：超级组 wheelW2/R2 彻底清除 */
   if(a==='wheelOk'){
     if(wheelCtx && wheelCtx.cb) wheelCtx.cb(wheelCtx.values[wheelCtx.idx]);
     wheelCtx = null; closeSheet(); return;
@@ -943,45 +856,7 @@ document.addEventListener('click', e=>{
     toast('已切换为 ' + (it.lb?'LB（磅）':'KG（千克）'));
     return;
   }
-  if(a==='exSuperset'){
-    const i = +act.dataset.ex;
-    const it = session.items[i];
-    const isSup = it.supersetWith!==null && it.supersetWith!==undefined;
-    if(isSup){
-      const j = it.supersetWith;
-      it.supersetWith = null;
-      if(session.items[j]) session.items[j].supersetWith = null;
-      closeSheet(); renderWorkoutList(); toast('已取消超级组');
-    } else {
-      /* v8.11: 跳动作库选动作（openPicker） */
-      const afterPick = function(exId){
-        if(!exId) return;
-        /* 插入新动作到 i+1 位置 */
-        const newItem = {
-          exId: exId,
-          sets: [{weight:'',reps:'',rpe:'',done:false,warmup:false}],
-          restSec: 0,
-          notes: '',
-          supersetWith: i,
-          lb: false
-        };
-        session.items.splice(i+1, 0, newItem);
-        it.supersetWith = i+1;
-        /* 重新映射后续动作的 supersetWith 引用 */
-        session.items.forEach(function(x, idx){
-          if(x.supersetWith !== null && x.supersetWith !== undefined && x.supersetWith > i){
-            x.supersetWith += 1;
-          }
-        });
-        closeSheet(); renderWorkoutList();
-        toast('超级组已添加');
-      };
-      /* 用 picker 选动作（app.js 的 pickerPart/pickerQuery 状态） */
-      window._supersetAfterPick = afterPick;
-      openPicker();
-    }
-    return;
-  }
+  /* v8.12 删：超级组功能（用户放弃） */
   if(a==='exReplace'){ openExReplaceSheet(+act.dataset.ex); return; }
   if(a==='exReplaceDo'){
     const i = +act.dataset.ex;
@@ -2582,28 +2457,7 @@ document.addEventListener('click', e=>{
     if(s.done) xianGainFromSet(session.items[i], s);
   }, 50);
 }, true);
-/* ---------- v8.10: 超级组同步完成（两个一起算一组完成） ---------- */
-document.addEventListener('click', e=>{
-  const act = e.target.closest('[data-act="doneSet"]');
-  if(!act) return;
-  const i = +act.dataset.ex, j = +act.dataset.set;
-  setTimeout(()=>{
-    if(!session || !session.items[i] || !session.items[i].sets[j]) return;
-    const it = session.items[i];
-    const sw = it.supersetWith;
-    if(sw === null || sw === undefined) return;
-    if(!session.items[sw]) return;
-    /* 配对动作同 j set 也同步 done（保留用户单独 toggle 空间：只在两 set done 状态不同时同步） */
-    const sA = it.sets[j];
-    const sB = session.items[sw].sets[j];
-    if(!sB) return;
-    if(sB.done !== sA.done){
-      sB.done = sA.done;
-      save();
-      renderWorkoutList();
-    }
-  }, 80);
-}, true);
+/* v8.12 删：超级组同步完成逻辑 */
 const _doneSetBusy = new Map();
 document.addEventListener('click', e=>{
   const act = e.target.closest('[data-act="doneSet"]');
@@ -2621,7 +2475,7 @@ document.addEventListener('click', e=>{
   const act = e.target.closest('[data-act]');
   if(!act) return;
   const a = act.dataset.act;
-  const BUSY_ACTIONS = ['fillLast','applySugg','setCopyDown','setDelConfirm','exDelete','exMove','exSuperset','exReplaceDo','setWarmup','addExercise','newPlan','newFolder','savePlan','delPlan','saveCreateEx','finishWorkout','xianPlay','weekReport','monthReport','downloadReport','resumeWorkout','discardWorkout','closeSheet','closeWorkout','closeCreateEx','closeFolder','closePicker','closeStatic','fillLast','applySugg','openReplaceEx','openReplaceSheet'];
+  const BUSY_ACTIONS = ['fillLast','applySugg','setCopyDown','setDelConfirm','exDelete','exMove','exReplaceDo','setWarmup','addExercise','newPlan','newFolder','savePlan','delPlan','saveCreateEx','finishWorkout','xianPlay','weekReport','monthReport','downloadReport','resumeWorkout','discardWorkout','closeSheet','closeWorkout','closeCreateEx','closeFolder','closePicker','closeStatic','fillLast','applySugg','openReplaceEx','openReplaceSheet'];
   if(BUSY_ACTIONS.indexOf(a) === -1) return;
   const key = a + ':' + (act.dataset.id || act.dataset.ex || act.dataset.set || '');
   if(_actionBusy.get(key)){ e.stopPropagation(); e.preventDefault(); return; }
