@@ -1029,6 +1029,16 @@ function activeMiniHTML(){
     </div>`;
 }
 
+function minimizeWorkout(){
+  if(!state) return;
+  state.currentWorkout = session;
+  try{save();}catch(e){}
+  $('#workout-view').classList.add('hidden');
+  $('#tabbar').classList.remove('hidden');
+  if(currentTab!=='train' && currentTab!=='library') $('#topbar').classList.remove('hidden');
+  render();
+  toast('训练已暂存，可随时从主页继续');
+}
 function resumeWorkout(){
   if(!state || !state.currentWorkout) return;
   session = state.currentWorkout;
@@ -1214,3 +1224,307 @@ $('#overlay').addEventListener('click', e=>{
     closeSheet();
   }
 });
+
+/* ============================================================
+   v5.1 增量：bug 修复 + 体验优化（2026-08-11）
+   ============================================================ */
+
+/* ---------- Bug1：finishWorkout 后 session 置空，避免动作库误判 ---------- */
+const _finishWorkoutBase2 = finishWorkout;
+finishWorkout = function(){
+  const ret = _finishWorkoutBase2();
+  session = null;
+  if(state){ state.currentWorkout = null; try{save();}catch(e){} }
+  return ret;
+};
+
+/* ---------- Bug2/3：返回=最小化（不再弹确认框），confirmBack=真退出 ---------- */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act]');
+  if(!act) return;
+  const a = act.dataset.act;
+  if(a === 'backWorkout'){
+    e.stopPropagation(); e.preventDefault();
+    minimizeWorkout();
+    return;
+  }
+  if(a === 'confirmBack'){
+    e.stopPropagation(); e.preventDefault();
+    // 真退出：丢弃当前训练
+    closeSheet();
+    session = null;
+    stopDur();
+    if(state){ state.currentWorkout = null; try{save();}catch(e){} }
+    $('#workout-view').classList.add('hidden');
+    $('#tabbar').classList.remove('hidden');
+    if(currentTab!=='train' && currentTab!=='library') $('#topbar').classList.remove('hidden');
+    render();
+    toast('已退出训练');
+    return;
+  }
+}, true);
+
+/* ---------- Bug4：mini 卡时长实时刷新 ---------- */
+let miniTicker = null;
+function startMiniTicker(){
+  stopMiniTicker();
+  miniTicker = setInterval(()=>{
+    const meta = $('#mini-active-meta');
+    if(!meta || !state || !state.currentWorkout) return;
+    const w = state.currentWorkout;
+    let done = 0, total = 0;
+    w.items.forEach(it=>it.sets.forEach(s=>{ total++; if(s.done) done++; }));
+    const dur = w.fixedDur ? w.fixedDur*60 : Math.max(0, Math.floor((Date.now() - w.startAt - (w.paused||0))/1000));
+    meta.textContent = '进度 ' + done + '/' + total + ' · 时长 ' + fmtTime(dur);
+  }, 1000);
+}
+function stopMiniTicker(){
+  if(miniTicker){ clearInterval(miniTicker); miniTicker = null; }
+}
+/* 在 renderHome 渲染后启动；切走时无需停（元素消失即跳过） */
+const _renderHomeBase2 = renderHome;
+renderHome = function(){
+  const html = _renderHomeBase2();
+  setTimeout(startMiniTicker, 50);
+  return html;
+};
+
+/* ---------- Bug5：addSet 复制组保留 warmup ---------- */
+const _addSetBase = addSet;
+addSet = function(i){
+  const prev = session.items[i].sets[session.items[i].sets.length-1];
+  session.items[i].sets.push({
+    weight: prev?prev.weight:'', reps: prev?prev.reps:'',
+    rpe:'', done:false, warmup: prev?!!prev.warmup:false
+  });
+  renderWorkoutList();
+};
+
+/* ---------- Bug6：fillLast 填入上次保留 warmup ---------- */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="fillLast"]');
+  if(!act) return;
+  e.stopPropagation(); e.preventDefault();
+  const i = +act.dataset.ex;
+  const ref = lastSetsForEx(session.items[i].exId);
+  if(ref){
+    session.items[i].sets = ref.sets.map(s=>({
+      weight:s.weight, reps:s.reps, rpe:'', done:false, warmup:!!s.warmup
+    }));
+    renderWorkoutList();
+    toast('已填入上次成绩');
+  }
+}, true);
+
+/* ---------- Bug7：wheelOk 同步最新滚动位置 ---------- */
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="wheelOk"]');
+  if(!act || !wheelCtx) return;
+  e.stopPropagation(); e.preventDefault();
+  const w = $('#wheel');
+  if(w){
+    const idx = Math.max(0, Math.min(wheelCtx.values.length-1, Math.round(w.scrollTop/44)));
+    wheelCtx.idx = idx;
+  }
+  if(wheelCtx.cb) wheelCtx.cb(wheelCtx.values[wheelCtx.idx]);
+  wheelCtx = null;
+  closeSheet();
+}, true);
+
+/* ---------- Bug8：删除训练用自定义确认 sheet 替代原生 confirm ---------- */
+const _discardWorkoutBase = discardWorkout;
+discardWorkout = function(){
+  openSheet(`
+    <h3>删除本次训练</h3>
+    <p style="color:var(--muted);font-size:14px;line-height:1.6;">删除后本次训练的组数记录将丢弃，<b>不会计入历史</b>。确定删除吗？</p>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn block" data-act="closeSheet">取消</button>
+      <button class="btn block primary" style="background:#ef4444;" data-act="confirmDiscard">删除</button>
+    </div>
+  `);
+};
+document.addEventListener('click', e=>{
+  const act = e.target.closest('[data-act="confirmDiscard"]');
+  if(!act) return;
+  e.stopPropagation(); e.preventDefault();
+  closeSheet();
+  session = null;
+  stopDur();
+  if(state){ state.currentWorkout = null; try{save();}catch(e){} }
+  render();
+  toast('训练记录已删除');
+}, true);
+
+/* ---------- Bug10：resume 后立即显示当前时长（不等 500ms） ---------- */
+const _resumeWorkoutBase = resumeWorkout;
+resumeWorkout = function(){
+  _resumeWorkoutBase();
+  const el = $('#wo-time');
+  if(el && session){
+    const sec = session.fixedDur ? session.fixedDur*60 : Math.max(0, Math.floor((Date.now() - session.startAt - (session.paused||0))/1000));
+    el.textContent = fmtTime(sec);
+  }
+};
+
+/* ============================================================
+   体验优化
+   ============================================================ */
+
+/* O1：完成训练后展示摘要 toast（组数/时长/容量） */
+const _finishWorkoutBase3 = finishWorkout;
+finishWorkout = function(){
+  const ret = _finishWorkoutBase3();
+  const last = state.workouts[state.workouts.length-1] || null;
+  if(last && !last._toasted){
+    last._toasted = true;
+    const sets = last.items.reduce((n,it)=>n+it.sets.length,0);
+    const min = Math.round((last.duration||0)/60);
+    setTimeout(()=>{
+      toast(`✅ 完成！${min}分钟 · ${sets}组 · 容量 ${last.volume||0}kg`);
+    }, 600);
+  }
+  return ret;
+};
+
+/* O2：动作卡 head 加 data-done-badge（折叠时显示完成徽章） */
+(function(){
+  const base = renderWorkoutList;
+  renderWorkoutList = function(){
+    base();
+    $$('#workout-list .ex-card').forEach(card=>{
+      const exIdx = card.dataset.ex;
+      if(exIdx == null) return;
+      const it = session.items[+exIdx];
+      if(!it) return;
+      const done = it.sets.filter(s=>s.done).length;
+      const total = it.sets.length;
+      const head = card.querySelector('.ex-name');
+      if(head) head.dataset.doneBadge = done + '/' + total;
+    });
+  };
+})();
+
+/* O3：训练页 hero 加"删除本次训练"按钮 */
+function ensureHeroDelBtn(){
+  const top = $('#workout-hero-top');
+  if(!top || $('#wo-del-btn')) return;
+  // 在"完成"按钮右侧插入删除按钮
+  const btn = document.createElement('button');
+  btn.className = 'wo-del-btn';
+  btn.dataset.act = 'discardWorkout';
+  btn.title = '删除本次训练';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
+  top.appendChild(btn);
+}
+(function(){
+  const base = openWorkout;
+  openWorkout = function(){
+    base();
+    setTimeout(ensureHeroDelBtn, 0);
+  };
+})();
+(function(){
+  const base = resumeWorkout;
+  resumeWorkout = function(){
+    base();
+    setTimeout(ensureHeroDelBtn, 0);
+  };
+})();
+
+/* O4：主页空计划引导 */
+(function(){
+  const base = renderHome;
+  renderHome = function(){
+    let html = base();
+    const hasPlans = state.plans && state.plans.length;
+    if(!hasPlans){
+      const guide = `
+        <div class="empty-guide">
+          <div style="font-size:40px;margin-bottom:10px;">🏋️</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);">还没有训练计划</div>
+          <div style="font-size:13px;margin-top:6px;">创建一个计划，或直接用系统内置训练库开始</div>
+          <button class="eg-btn" data-act="newPlan">+ 新建计划</button>
+        </div>`;
+      html = html.replace(/<div class="new-plan-card"[\s\S]*?<\/div>/, guide);
+    }
+    return html;
+  };
+})();
+
+/* O5：统计空状态引导 */
+(function(){
+  const base = renderStats;
+  renderStats = function(){
+    const html = base();
+    const hasWorkouts = state.workouts && state.workouts.length;
+    if(!hasWorkouts && currentTab === 'stats' && statsSub === 'history'){
+      const emptyHtml = `
+        <div class="stat-empty">
+          <div style="font-size:40px;margin-bottom:10px;">📊</div>
+          还没有训练记录<br>完成第一次训练后，这里会展示你的<br>历史记录、热力图与训练统计
+        </div>`;
+      return html + emptyHtml;
+    }
+    return html;
+  };
+})();
+
+/* O6：触觉反馈——完成一组 / 删除组时轻微震动 */
+(function(){
+  document.addEventListener('click', e=>{
+    const act = e.target.closest('[data-act]');
+    if(!act) return;
+    const a = act.dataset.act;
+    if(a === 'doneSet' || a === 'setDelConfirm' || a === 'exDelete'){
+      try{ if(navigator.vibrate) navigator.vibrate(15); }catch(err){}
+    }
+  }, true);
+})();
+
+/* O7：长按拖动时 toast 提示 */
+(function(){
+  const base = startDrag;
+  startDrag = function(card, x, y){
+    base(card, x, y);
+    toast('拖动调整顺序');
+  };
+})();
+
+/* O8：休息倒计时显示下一动作名 */
+(function(){
+  const base = startRest;
+  startRest = function(exIdx){
+    base(exIdx);
+    const el = $('#rest-ex');
+    if(el && session){
+      // 找下一个未完成的动作
+      let next = null;
+      for(let k=(exIdx||0); k<session.items.length; k++){
+        const it = session.items[k];
+        if(it.sets.some(s=>!s.done)){ next = it; break; }
+      }
+      if(!next) next = session.items[session.items.length-1];
+      if(next) el.textContent = '下一组：' + next.name;
+    }
+  };
+})();
+
+/* O10：训练中 tabbar 训练tab红点 */
+(function(){
+  const base = setTab;
+  setTab = function(tab){
+    const ret = base(tab);
+    const dot = $('#tab-dot');
+    const t = document.querySelector('.tab[data-tab="train"]');
+    if(state && state.currentWorkout){
+      if(t && !dot){
+        t.style.position = 'relative';
+        const d = document.createElement('span');
+        d.id = 'tab-dot';
+        d.style.cssText = 'position:absolute;top:4px;right:16px;width:8px;height:8px;border-radius:50%;background:#ef4444;';
+        t.appendChild(d);
+      }
+    } else if(dot){ dot.remove(); }
+    return ret;
+  };
+})();
