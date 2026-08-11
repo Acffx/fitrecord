@@ -2667,8 +2667,10 @@ setTab = function(tab){
   }
 };
 
-/* ---------- render 权威版（cultivation → 健体修仙录，其余 → 原渲染） ---------- */
+/* ---------- render 权威版（v8.3 加强：cultivation → 健体修仙录，其余 → 增强版原渲染，try/catch 兜底防统计页面丢失） ---------- */
 render = function(){
+  /* 确保 tabbar 永远可见（训练视图自己隐藏） */
+  try{ $('#tabbar').classList.remove('hidden'); }catch(e){}
   if(currentTab === 'cultivation'){
     var view = $('#view');
     if(window.XianCore){
@@ -2685,11 +2687,23 @@ render = function(){
     }
     return;
   }
-  if(currentTab === 'train'){ $('#view').innerHTML = renderHome(); }
-  else if(currentTab === 'library'){ $('#view').innerHTML = renderLibrary(); }
-  else if(currentTab === 'stats'){ $('#view').innerHTML = renderStats(); }
-  else if(currentTab === 'me'){ $('#view').innerHTML = renderMe(); }
-  else { $('#view').innerHTML = renderHome(); }
+  /* 其它 tab：用 try/catch 兜底防 v7.0 包装版 renderStats/renderHome 抛错导致白屏 */
+  try{
+    if(currentTab === 'train'){ $('#view').innerHTML = renderHome(); }
+    else if(currentTab === 'library'){ $('#view').innerHTML = renderLibrary(); }
+    else if(currentTab === 'stats'){ $('#view').innerHTML = renderStats(); }
+    else if(currentTab === 'me'){ $('#view').innerHTML = renderMe(); }
+    else { $('#view').innerHTML = renderHome(); }
+  }catch(e){
+    /* 兜底：直接用 app.js 原版函数重新渲染（绕过任何 enhance 包装） */
+    console.error('[render 兜底] 增强版渲染失败：', e);
+    try{
+      if(currentTab === 'train'){ eval('renderHome()'); }
+      else if(currentTab === 'stats'){ eval('renderStats()'); }
+    }catch(e2){
+      $('#view').innerHTML = '<div class="empty" style="padding:60px 20px;text-align:center;color:#ef4444;">页面渲染失败<br><br><button class="btn block primary" onclick="location.reload()" style="padding:10px 24px;">刷新重试</button></div>';
+    }
+  }
 };
 
 /* ---------- 全局修仙主题增强版（完整覆盖所有硬编码色） ---------- */
