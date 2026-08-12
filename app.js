@@ -2603,12 +2603,37 @@ function exportCSV(){
   URL.revokeObjectURL(url); toast('已导出 CSV');
 }
 
+/* v8.18: 监听 SW 强制刷新消息（SW activate 时通知所有 tab 重新加载） */
+if(navigator.serviceWorker){
+  navigator.serviceWorker.addEventListener('message', function(e){
+    if(e.data && e.data.type === 'force-reload'){
+      try{ window.location.reload(); }catch(_){}
+    }
+  });
+}
+
 /* ============================================================
    启动
    ============================================================ */
 function init(){
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      /* v8.18: 检测到新 SW 立即 skipWaiting 并 reload */
+      if(reg.waiting){
+        reg.waiting.postMessage({type:'skipWaiting'});
+        window.location.reload();
+      }
+      reg.addEventListener('updatefound', function(){
+        var sw = reg.installing;
+        if(!sw) return;
+        sw.addEventListener('statechange', function(){
+              if(sw.state === 'installed' && navigator.serviceWorker.controller){
+                sw.postMessage({type:'skipWaiting'});
+                window.location.reload();
+              }
+            });
+      });
+    }).catch(function(){});
   }
   setTab('train');
 }
