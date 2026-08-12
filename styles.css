@@ -394,22 +394,13 @@ body{
   padding:18px 16px calc(20px + var(--safe-b));max-height:88vh;overflow-y:auto;position:relative;}
 .sheet h3{margin:0 0 14px;font-size:18px;}
 
-/* v8.16: 全局状态栏安全边距适配（v8.20 修复：--safe-b 重复定义 bug） */
-:root{--safe-b:env(safe-area-inset-bottom, 0px);}
-html,body{padding-top:var(--safe-t);box-sizing:border-box;}
-.topbar{
-  position:sticky;top:0;
-  padding-top:calc(8px + env(safe-area-inset-top, 0px));
-  background:rgba(15,28,52,.92);
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-  z-index:50;
-}
-.tabbar{padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));}
+/* v8.23: 删除重复的 safe-area 声明（原 styles.css line 36/48 已定义 #topbar/#tabbar 的 safe-area 适配，
+   v8.16 额外加的 html,body{padding-top:...} + .topbar/.tabbar 重复导致双倍留白） */
+/* 仙途页 xc-page 顶部预留 */
 .xc-page{padding-top:8px;}
 /* v8.20 修复：仙途页 #view 移除额外 padding-top 避免顶部大块空白 */
 #view{padding-top:0;}
-#bodydata-view{padding-top:env(safe-area-inset-top, 0px);box-sizing:border-box;min-height:100vh;background:#0b1120;}
+#bodydata-view{padding-top:var(--safe-t);box-sizing:border-box;min-height:100vh;background:#0b1120;}
 
 /* v8.16: 仙途动态打坐人物模块 */
 .cultivation-avatar{
