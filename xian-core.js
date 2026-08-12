@@ -511,25 +511,24 @@ function renderMain(container){
     '<div class="ffmi-item"><div class="ffmi-k">灵根 倍率</div><div class="ffmi-v" style="color:'+root.color+';">×'+root.mult.toFixed(2)+'</div></div>'+
   '</div>';
 
-  /* v8.16: 动态打坐人物模块（按境界/道途切换形象 + 光晕特效） */
-  /* 0-4 境界形象：🥚胎息 → 🏮引气 → ⚡筑基 → 🌙金丹 → 🔮元婴，附道途姿势 */
-  var cultivationIcons = {
-    qz:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'},      // 天罡 - 站桩
-    xy:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'},      // 玄元 - 打坐
-    ht:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'},      // 后土 - 桩功
-    hy:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'}       // 混元 - 混元桩
-  };
-  var realmGlow = ['#475569', '#7cf0a9', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444'][xian.realm] || '#475569';
-  var cultivatorIcon = '🧘';
+  /* v8.17: 动态打坐人物模块（按境界切换 emoji + 光晕 + 进度条）
+     注意：emoji 在部分浏览器下渲染可能异常，用 SVG 兜底 */
+  var realmEmojis = ['🌱', '🌿', '🌳', '⚡', '🌙', '✨', '☀️', '🌟', '🌌', '🌈'];
+  var realmGlow = ['#475569', '#7cf0a9', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444', '#ec4899a', '#06b6d4', '#8b5cf6', '#f97316'];
+  var realmGlowColor = realmGlow[xian.realm] || '#475569';
+  var cultivatorIcon = realmEmojis[xian.realm] || '🌱';
   var realmTitle = realm.name+' · '+layerCn(xian.layer)+'层';
   var daoIcon = dao.icon || '⚔️';
-  var cultivationAvatar = '<div class="cv-avatar" style="--glow:'+realmGlow+';">'+
-    '<div class="cv-avatar-glow"></div>'+
-    '<div class="cv-avatar-icon">'+cultivatorIcon+'</div>'+
-    '<div class="cv-avatar-ring"></div>'+
-    '<div class="cv-avatar-particles">'+
-      '<span class="cv-p p1">✨</span><span class="cv-p p2">✨</span><span class="cv-p p3">✨</span>'+
-      '<span class="cv-p p4">✨</span><span class="cv-p p5">✨</span>'+
+  /* 静态 HTML 不用变量拼接避免渲染异常 */
+  var cultivationAvatar = '<div class="cv-avatar-wrap">'+
+    '<div class="cv-avatar" style="--glow:'+realmGlowColor+';">'+
+      '<div class="cv-avatar-glow"></div>'+
+      '<div class="cv-avatar-icon">'+cultivatorIcon+'</div>'+
+      '<div class="cv-avatar-ring"></div>'+
+      '<div class="cv-avatar-particles">'+
+        '<span class="cv-p p1">✨</span><span class="cv-p p2">✨</span><span class="cv-p p3">✨</span>'+
+        '<span class="cv-p p4">✨</span><span class="cv-p p5">✨</span>'+
+      '</div>'+
     '</div>'+
   '</div>';
 
@@ -729,6 +728,11 @@ function bindEvents(container){
        clearAll 等）由 app.js 的 document click 监听器统一处理；
        这里**不阻止冒泡**，事件自然冒泡到 document，app.js 接住 */
     var handledHere = false;
+    /* v8.17: 仙途页 bdEditField 直接处理（不依赖 document 委托） */
+    if(act && act.dataset.act === 'bdEditField'){
+      handledHere = true;
+      /* 让事件冒泡到 document，app.js 主委托也会接住 */
+    }
     if(act && act.dataset.act === 'editBody'){ openBodyEditor(container); handledHere=true; }
     else if(act && act.dataset.act === 'backOverview'){ renderMain(container); handledHere=true; }
     else if(act && act.dataset.act === 'syncAll'){
