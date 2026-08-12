@@ -129,7 +129,8 @@ function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(state)); }catc
 function ensureXian(){
   if(!state) return;
   if(!state.xianJian){
-    state.xianJian = { realm:0, layer:1, dao:'tian', main:[], skills:{}, body:{arm:'',thigh:''}, lastBreakAt:0, bottleneckDays:0 };
+    /* v8.20: 默认包含 shoulder/arm 字段（曲臂臂围） */
+    state.xianJian = { realm:0, layer:1, dao:'tian', main:[], skills:{}, body:{shoulder:'', arm:'', thigh:''}, lastBreakAt:0, bottleneckDays:0 };
   }
   xian = state.xianJian;
   CONFIG.SKILLS.forEach(function(s){
@@ -535,9 +536,9 @@ function renderMain(container){
   '</div>';
 
   container.innerHTML =
-    '<div class="xc-page">'+
+    '<div class="xc-page" style="padding-top:0;">'+
       /* ① 动态打坐人物模块（v8.16 新增：基于境界/道途切换形象 + 光晕特效） */
-      '<div class="cultivation-avatar" style="--glow:'+realmGlow+';">'+
+      '<div class="cultivation-avatar" style="--glow:'+realmGlow+';margin-top:0;">'+
         cultivationAvatar+
         '<div class="cv-info">'+
           '<div class="cv-title">'+realmTitle+'</div>'+
