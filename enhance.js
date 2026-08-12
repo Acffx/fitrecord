@@ -1779,6 +1779,11 @@ function xianAutoLevel(){
 }
 function xianInit(){
   const x = xianState();
+  /* v8.21 修黑屏 bug：老数据缺 partExp/partLv/initialized/partFilled 字段会导致 x.partExp[it.part]=... 抛错 → 整页黑屏 */
+  x.partExp = x.partExp || {};
+  x.partLv = x.partLv || {};
+  x.initialized = x.initialized || false;
+  x.partFilled = x.partFilled || false;
   /* v8.20: 每次都跑 xianAutoLevel，与训练历史实时对齐 */
   const auto = xianAutoLevel();
   if(auto){
@@ -1806,17 +1811,23 @@ function xianInit(){
   }
   // 首次：从历史 workouts 回填 partExp（按容量累计）
   if(!x.partFilled){
-    (state.workouts||[]).forEach(w=>{
-      (w.items||[]).forEach(it=>{
-        const v = (it.sets||[]).reduce((s,set)=>s+(+set.weight||0)*(+set.reps||0),0);
-        if(v>0){
-          x.partExp[it.part] = (x.partExp[it.part]||0) + v;
-          const lvl = Math.min(10, Math.floor((x.partExp[it.part]/1000))+1);
-          if((x.partLv[it.part]||0) < lvl) x.partLv[it.part] = lvl;
-        }
+    try{
+      (state.workouts||[]).forEach(w=>{
+        (w.items||[]).forEach(it=>{
+          const v = (it.sets||[]).reduce((s,set)=>s+(+set.weight||0)*(+set.reps||0),0);
+          if(v>0){
+            x.partExp[it.part] = (x.partExp[it.part]||0) + v;
+            const lvl = Math.min(10, Math.floor((x.partExp[it.part]/1000))+1);
+            if((x.partLv[it.part]||0) < lvl) x.partLv[it.part] = lvl;
+          }
+        });
       });
-    });
-    save();
+      x.partFilled = true;
+      save();
+    }catch(err){
+      console.warn('[v8.21] xianInit 回填失败：', err);
+      x.partFilled = true;
+    }
   }
 }
 
