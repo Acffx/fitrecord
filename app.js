@@ -1286,6 +1286,9 @@ function renderBodyData(){
   const hi = latest ? latest.hip : '';
   const sk = latest ? latest.skeletal : '';
   const vi = latest ? latest.visceral : '';
+  /* v8.21 修黑屏 bug：renderBodyData 引用 sh/arm 但未定义变量 → ReferenceError → 整页黑屏 */
+  const sh = latest ? latest.shoulder : '';
+  const arm = latest ? latest.arm : '';
   const h = p.height;
   /* v8.14 单元格支持独立点击编辑（路径A 单项快速修改） + 容错显示"未设置" */
   const cell = (k,v,u,field)=>{
