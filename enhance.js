@@ -1345,7 +1345,8 @@ const XIAN_PARTS = {
   '有氧': {gongfa:'风灵步法',   icon:'💨', desc:'身法如风，耐力绵长'},
   '拉伸': {gongfa:'柔水诀',     icon:'💧', desc:'柔能克刚，舒展筋骨'},
 };
-function xianState(){ return state.xian || (state.xian = {realm:0, stage:1, exp:0, totalExp:0, partLv:{}, prCount:0, wins:0, playCount:0}); }
+/* v8.20: 默认 partFilled:false + partExp:{}+initialized:false */
+function xianState(){ return state.xian || (state.xian = {realm:0, stage:1, exp:0, totalExp:0, partLv:{}, partExp:{}, prCount:0, wins:0, playCount:0, initialized:false, partFilled:false}); }
 function xianCur(){
   const x = xianState();
   const realm = XIAN_REALMS[x.realm];
@@ -1778,21 +1779,33 @@ function xianAutoLevel(){
 }
 function xianInit(){
   const x = xianState();
-  if(!x.initialized){
-    const auto = xianAutoLevel();
-    if(auto){
-      const prev = {realm:x.realm, stage:x.stage};
+  /* v8.20: 每次都跑 xianAutoLevel，与训练历史实时对齐 */
+  const auto = xianAutoLevel();
+  if(auto){
+    const prev = {realm:x.realm, stage:x.stage};
+    /* v8.20: 仅当 auto.realm 高于当前 realm 时自动晋升（不降级保留用户手动调） */
+    if(auto.realm > x.realm){
       x.realm = auto.realm;
       x.stage = auto.stage;
-      x.exp = auto.exp;
-      x.initialized = true;
-      if(auto.realm > prev.realm){
-        setTimeout(()=>toast('🧭 仙根已定：'+XIAN_REALMS[auto.realm].name+'（'+XIAN_REALMS[auto.realm].fit+'）'), 600);
+      if(!x.initialized){
+        x.initialized = true;
+        if(auto.realm > prev.realm){
+          setTimeout(()=>toast('🧭 仙根已定：'+XIAN_REALMS[auto.realm].name+'（'+XIAN_REALMS[auto.realm].fit+'）'), 600);
+        }
+      } else {
+        /* 训练后自动晋升（不弹toast避免干扰） */
+        if(auto.realm > prev.realm){
+          setTimeout(()=>toast('✨ 仙途提升！'+XIAN_REALMS[prev.realm].name+' → '+XIAN_REALMS[auto.realm].name), 800);
+        }
       }
-    } else {
+    } else if(!x.initialized){
       x.initialized = true;
     }
-    // 首次：从历史 workouts 回填 partExp（按容量累计）
+  } else if(!x.initialized){
+    x.initialized = true;
+  }
+  // 首次：从历史 workouts 回填 partExp（按容量累计）
+  if(!x.partFilled){
     (state.workouts||[]).forEach(w=>{
       (w.items||[]).forEach(it=>{
         const v = (it.sets||[]).reduce((s,set)=>s+(+set.weight||0)*(+set.reps||0),0);
