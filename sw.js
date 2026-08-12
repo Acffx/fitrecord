@@ -7,6 +7,7 @@ const CACHE = 'fitrecord-v28';
 const SHELL = [
   '.',
   'index.html',
+  'xian.html',
   'xian-core.js',
   'styles.css',
   'enhance.css',
