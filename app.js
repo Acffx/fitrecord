@@ -1499,20 +1499,40 @@ function bdQuickEditField(fieldName){
     current: cur,
     placeholder: cfg.min + ' - ' + cfg.max,
     onSave: function(v){
-      /* 保存为新历史记录（绝对不覆盖） */
+      /* v8.16: 保存为新历史记录（严格不覆盖其他日期）；
+         同日期时合并所有字段（不让老字段被挤出）；
+         新日期时复制最新一条的全部字段 + 更新当前字段 */
       var date = todayStr();
       state.bodyLog = state.bodyLog || [];
-      var entry = {date: date};
-      entry[cfg.saveKey] = v;
-      state.bodyLog.push(entry);
+      /* 找当天的 entry（同日期则合并） */
+      var idx = state.bodyLog.findIndex(function(x){ return x.date === date; });
+      var entry;
+      if(idx >= 0){
+        /* 同日期：合并到现有 entry（保留老字段） */
+        entry = Object.assign({}, state.bodyLog[idx], {date: date});
+        entry[cfg.saveKey] = v;
+        state.bodyLog[idx] = entry;
+      } else {
+        /* 新日期：复制最新一条的全部字段 + 更新当前字段 */
+        var latest = state.bodyLog.length ? state.bodyLog[state.bodyLog.length-1] : null;
+        entry = {date: date};
+        if(latest){
+          /* 复制身高/体重/围度等已填字段 */
+          ['weight','height','bodyFat','bmr','chest','waist','hip','shoulder','arm','thigh','calf','neck','skeletal','visceral'].forEach(function(k){
+            if(latest[k] !== '' && latest[k] != null && !isNaN(latest[k])) entry[k] = latest[k];
+          });
+        }
+        entry[cfg.saveKey] = v;
+        state.bodyLog.push(entry);
+      }
       state.bodyLog.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
-      /* 身高/体重/体脂率 同步到 profile（用于 FFMI/LBM） */
+      /* 身高/体重/体脂率 同步到 profile */
       if(fieldName === 'height' || fieldName === 'weight' || fieldName === 'bodyFat'){
         state.profile = state.profile || {};
         state.profile[fieldName] = v;
       }
       save();
-      /* v8.15: 智能刷新——如果在 bodydata 主页刷 bodyData，否则如果仙途刷 renderMain，否则刷 render */
+      /* v8.15: 智能刷新 */
       if(!$('#bodydata-view').classList.contains('hidden')){
         renderBodyData();
       } else if(window.XianCore && document.querySelector('.xc-root')){
@@ -1521,7 +1541,7 @@ function bdQuickEditField(fieldName){
       } else {
         render();
       }
-      toast(cfg.title.replace('设置','') + '已保存：' + v + ' ' + cfg.unit);
+      toast('✓ 已保存：' + cfg.title.replace('设置','') + ' ' + v + ' ' + cfg.unit);
     }
   });
 }
@@ -1987,12 +2007,33 @@ function finishWorkout(){
   if(!state.checkins.includes(date)){ state.checkins.push(date); state.points += 10; }
   save();
   closeWorkout();
-  currentTab = 'stats';
-  statsSub = 'history';
-  statsMonth = new Date(date+'T12:00:00');
-  setTab('stats');
-  if(workout.prs.length) toast(`训练完成 🎉 刷新 ${workout.prs.length} 项纪录！`);
-  else toast('训练完成，已保存');
+  /* v8.16: 训练完成 → 切换到仙途页 + 触发升级动画（如果境界提升） */
+  currentTab = 'cultivation';
+  setTab('cultivation');
+  /* 检测境界提升 */
+  var upgraded = false;
+  if(window.XianCore && document.querySelector('.xc-root')){
+    try{
+      var host = document.querySelector('.xc-root');
+      var before = (xian._lastRealm != null) ? xian._lastRealm : xian.realm;
+      window.XianCore.renderTo(host);
+      /* 升级动画 */
+      if(xian.realm > before || (xian.realm === before && xian.layer > (xian._lastLayer||0))){
+        upgraded = true;
+        var avatar = document.querySelector('.cultivation-avatar');
+        if(avatar){
+          avatar.classList.remove('upgrade');
+          void avatar.offsetWidth;
+          avatar.classList.add('upgrade');
+          setTimeout(function(){ avatar.classList.remove('upgrade'); }, 1200);
+        }
+      }
+      xian._lastRealm = xian.realm;
+      xian._lastLayer = xian.layer;
+    }catch(e){}
+  }
+  if(workout.prs.length) toast(`训练完成 🎉 刷新 ${workout.prs.length} 项纪录！${upgraded?' 【境界突破】':''}`);
+  else toast(upgraded ? '训练完成 ✨ 境界提升！' : '训练完成，已保存');
 }
 
 /* ============================================================
