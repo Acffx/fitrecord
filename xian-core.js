@@ -150,39 +150,71 @@ function getBodyLatest(){
   var log = state.bodyLog || [];
   return log.length ? log[log.length-1] : null;
 }
+/* v8.16: FFMI 公式严格按用户指定公式
+   FFM = 体重 × (1 - 体脂率)
+   标准FFMI = FFM ÷ (身高 × 身高)    —— 身高单位是米
+   校正FFMI = 标准FFMI + 6.1 × (1.8 - 身高米)
+*/
 function computeFFMI(){
   var p = getProfile();
   var b = getBodyLatest() || {};
-  var h = num(p.height, 0);
+  var h = num(p.height, 0);                  // cm
   var w = num(b.weight, 0) || num(p.weight, 0);
   var waist = num(b.waist, 0);
-  var arm = num(xian.body.arm, 0) || num(b.arm, 0);
-  var thigh = num(xian.body.thigh, 0) || num(b.thigh, 0);
+  var arm = num(b.arm, 0) || num(xian.body.arm, 0);
+  var thigh = num(b.thigh, 0) || num(b.thigh, 0);
   var chest = num(b.chest, 0);
+  var directFat = num(b.bodyFat, 0);
   if(!h || !w) return null;
-  var estFat = 0.75 * (waist/h*100) - (arm+thigh)/h * 8;
-  estFat = Math.max(2, Math.min(45, estFat/100));
-  var lbm = w * (1 - estFat);
-  var hm = h/100;
-  var ffmi = lbm / (hm*hm);
-  return {ffmi:ffmi, estFat:estFat, weight:w, height:h, waist:waist, arm:arm, thigh:thigh, chest:chest, hasBody: !!(waist||arm||thigh||chest)};
+  /* 1. 体脂率 */
+  var estFatPct = 0;
+  if(directFat > 0){
+    estFatPct = directFat;
+  } else if(waist > 0){
+    var raw = 0.75 * (waist/h*100) - (arm+thigh)/h * 8;
+    estFatPct = Math.max(2, Math.min(45, raw));
+  } else {
+    estFatPct = 15;
+  }
+  /* 2. FFM = 体重 × (1 - 体脂率) */
+  var ffm = w * (1 - estFatPct/100);
+  /* 3. 标准FFMI = FFM / (身高米)² */
+  var hm = h / 100;
+  var ffmi = ffm / (hm * hm);
+  /* 4. 校正FFMI = 标准FFMI + 6.1 × (1.8 - 身高米) */
+  var ffmiAdj = ffmi + 6.1 * (1.8 - hm);
+  return {
+    ffmi: ffmi,
+    ffmiAdj: ffmiAdj,
+    ffm: ffm,
+    estFat: estFatPct / 100,                // 内部单位统一为小数
+    weight: w,
+    height: h,
+    waist: waist,
+    arm: arm,
+    thigh: thigh,
+    chest: chest,
+    hasBody: !!(waist || arm || thigh || chest || directFat)
+  };
 }
 function getRoot(){
   var r = computeFFMI();
   if(!r) return {name:'未测算', mult:1.0, color:'#9ca3af', fx:'', up:'请完善身高体重数据', debuffs:[]};
+  /* v8.16: 灵根判定用校正FFMI（更准确反映体型） */
   var idx = 0;
-  for(var i=0;i<CONFIG.ROOTS.length;i++) if(r.ffmi > CONFIG.ROOTS[i].max) idx = i+1;
+  for(var i=0;i<CONFIG.ROOTS.length;i++) if(r.ffmiAdj > CONFIG.ROOTS[i].max) idx = i+1;
   if(idx >= CONFIG.ROOTS.length) idx = CONFIG.ROOTS.length-1;
   var root = CONFIG.ROOTS[idx];
   var mult = root.mult;
   var debuffs = [];
-  if(r.ffmi < CONFIG.DEBUFF_WEAK.ffmi){ mult *= CONFIG.DEBUFF_WEAK.mult; debuffs.push({name:'肉身枯萎', color:'#6b7280', msg:CONFIG.DEBUFF_WEAK.msg}); }
+  /* v8.16: 同步用校正FFMI判断"肉身枯萎" */
+  if(r.ffmiAdj < CONFIG.DEBUFF_WEAK.ffmi){ mult *= CONFIG.DEBUFF_WEAK.mult; debuffs.push({name:'肉身枯萎', color:'#6b7280', msg:CONFIG.DEBUFF_WEAK.msg}); }
   if(r.estFat*100 > CONFIG.DEBUFF_FAT.bodyFat){
     var tmpIdx = Math.max(0, idx-1);
     mult = CONFIG.ROOTS[tmpIdx].mult;
     debuffs.push({name:'浊脂淤灵', color:'#a8a29e', msg:CONFIG.DEBUFF_FAT.msg});
   }
-  return {name:root.name, mult:mult, color:CONFIG.ROOT_COLOR[root.name]||'#9ca3af', fx:root.fx, up:root.up, debuffs:debuffs, ffmi:r.ffmi, rawRoot:root.name};
+  return {name:root.name, mult:mult, color:CONFIG.ROOT_COLOR[root.name]||'#9ca3af', fx:root.fx, up:root.up, debuffs:debuffs, ffmi:r.ffmi, ffmiAdj:r.ffmiAdj, rawRoot:root.name};
 }
 
 /* ============================================================
@@ -441,10 +473,11 @@ function renderMain(container){
   var bmi = (h>0 && w>0) ? (w / Math.pow(h/100, 2)) : 0;
   var bmiLevel = !bmi ? '--' : (bmi<18.5?'偏瘦':bmi<24?'正常':bmi<28?'超重':'肥胖');
   /* LBM + 预估体脂率 */
-  /* v8.15: 修复 — computeFFMI 返回的 estFat 已是百分比数值（2=2%），
-     renderMain 不能再 *100，否则变成 200% 负数 */
+  /* v8.16: estFat 已是小数（0.15 表示 15%），不再 *100 */
   var estFat = (cr && cr.estFat != null) ? cr.estFat : 0;
-  var lbm = (w>0 && estFat>0) ? w*(1-estFat/100) : 0;
+  /* v8.16: LBM = FFM（瘦体重）= 体重 × (1 - 体脂率) */
+  var ffmReal = (cr && cr.ffm != null) ? cr.ffm : 0;
+  var lbm = (w>0 && estFat>0) ? w*(1-estFat) : ffmReal;
 
   /* v8.15: 胸围/肩宽/臂围支持点击独立编辑（路径A 单项快速修改） */
   var cell = function(label, val, unit, field){
@@ -470,30 +503,63 @@ function renderMain(container){
     cell('肩宽', shoulder, 'cm', 'shoulder')+
     cell('臂围', arm, 'cm', 'arm')+
   '</div>';
-  /* FFMI/LBM/体脂率 + 灵根倍率（参考截图7） */
+  /* v8.16: FFMI/LBM/体脂率 + 灵根倍率（用校正FFMI） */
   var ffmiSummary = '<div class="ffmi-summary">'+
-    '<div class="ffmi-item"><div class="ffmi-k">FFMI</div><div class="ffmi-v" style="color:'+root.color+';">'+(cr?cr.ffmi.toFixed(1):'--')+'</div></div>'+
-    '<div class="ffmi-item"><div class="ffmi-k">瘦体重 LBM</div><div class="ffmi-v">'+(lbm?lbm.toFixed(1):'--')+' kg</div></div>'+
-    '<div class="ffmi-item"><div class="ffmi-k">预估体脂率</div><div class="ffmi-v">'+(estFat?estFat.toFixed(1):'--')+'%</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">FFMI（校正）</div><div class="ffmi-v" style="color:'+root.color+';">'+(cr&&cr.ffmiAdj?cr.ffmiAdj.toFixed(1):'--')+'</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">FFM 瘦体重</div><div class="ffmi-v">'+(lbm?lbm.toFixed(1):'--')+' kg</div></div>'+
+    '<div class="ffmi-item"><div class="ffmi-k">预估体脂率</div><div class="ffmi-v">'+(estFat?(estFat*100).toFixed(1):'--')+'%</div></div>'+
     '<div class="ffmi-item"><div class="ffmi-k">灵根 倍率</div><div class="ffmi-v" style="color:'+root.color+';">×'+root.mult.toFixed(2)+'</div></div>'+
+  '</div>';
+
+  /* v8.16: 动态打坐人物模块（按境界/道途切换形象 + 光晕特效） */
+  /* 0-4 境界形象：🥚胎息 → 🏮引气 → ⚡筑基 → 🌙金丹 → 🔮元婴，附道途姿势 */
+  var cultivationIcons = {
+    qz:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'},      // 天罡 - 站桩
+    xy:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'},      // 玄元 - 打坐
+    ht:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'},      // 后土 - 桩功
+    hy:{0:'🧘', 1:'🧘', 2:'🧘', 3:'🧘', 4:'🧘'}       // 混元 - 混元桩
+  };
+  var realmGlow = ['#475569', '#7cf0a9', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444'][xian.realm] || '#475569';
+  var cultivatorIcon = '🧘';
+  var realmTitle = realm.name+' · '+layerCn(xian.layer)+'层';
+  var daoIcon = dao.icon || '⚔️';
+  var cultivationAvatar = '<div class="cv-avatar" style="--glow:'+realmGlow+';">'+
+    '<div class="cv-avatar-glow"></div>'+
+    '<div class="cv-avatar-icon">'+cultivatorIcon+'</div>'+
+    '<div class="cv-avatar-ring"></div>'+
+    '<div class="cv-avatar-particles">'+
+      '<span class="cv-p p1">✨</span><span class="cv-p p2">✨</span><span class="cv-p p3">✨</span>'+
+      '<span class="cv-p p4">✨</span><span class="cv-p p5">✨</span>'+
+    '</div>'+
   '</div>';
 
   container.innerHTML =
     '<div class="xc-page">'+
-      /* ① 状态栏 */
-      '<div class="realm-strip" style="--dao:'+dao.color+';">'+
-        '<div class="realm-ic">'+realmIcon(xian.realm)+'</div>'+
-        '<div class="realm-info">'+
-          '<div class="realm-name" style="color:'+dao.color+';">'+realm.name+' · '+layerCn(xian.layer)+'层</div>'+
-          '<div class="realm-sub"><span>道途：'+dao.name+'</span><span>灵根：'+root.name+'（×'+root.mult.toFixed(2)+'）</span></div>'+
-          '<div class="realm-prog"><div class="realm-prog-fill" style="width:'+prog+'%;background:'+dao.color+';"></div></div>'+
-          '<div class="realm-prog-txt">'+(nextRealm?('距 '+nextRealm.name+'：力量达标 + 五围达标'):'已达肉身巅峰')+'</div>'+
+      /* ① 动态打坐人物模块（v8.16 新增：基于境界/道途切换形象 + 光晕特效） */
+      '<div class="cultivation-avatar" style="--glow:'+realmGlow+';">'+
+        cultivationAvatar+
+        '<div class="cv-info">'+
+          '<div class="cv-title">'+realmTitle+'</div>'+
+          '<div class="cv-sub">'+
+            '<span class="cv-dao">'+daoIcon+' '+dao.name+'</span>'+
+            '<span class="cv-root" style="color:'+root.color+';">'+root.name+'（×'+root.mult.toFixed(2)+'）</span>'+
+          '</div>'+
+          '<div class="cv-progress">'+
+            '<div class="cv-progress-bar">'+
+              '<div class="cv-progress-fill" style="width:'+prog+'%;background:'+dao.color+';"></div>'+
+            '</div>'+
+            '<div class="cv-progress-info">'+
+              '<span class="cv-progress-val">'+Math.round(prog)+'%</span>'+
+              '<span class="cv-progress-txt">'+(nextRealm?('距 '+nextRealm.name+'：力量 + 五围达标'):'已达肉身巅峰')+'</span>'+
+            '</div>'+
+          '</div>'+
+          (dbg ? '<div class="cv-debuffs">'+dbg+'</div>' : '')+
         '</div>'+
       '</div>'+
       /* ② 灵根条 */
       '<div class="root-strip">'+
         '<span class="root-badge" style="background:'+root.color+'22;color:'+root.color+';">'+root.name+'</span>'+
-        '<span class="root-ffmi">'+ffmiTxt+'</span>'+dbg+
+        '<span class="root-ffmi">校正FFMI：'+(cr&&cr.ffmiAdj?cr.ffmiAdj.toFixed(1):'--')+'</span>'+dbg+
       '</div>'+
       /* ③ 肉身档案（v8.9 精简到 6 字段） */
       '<div class="sec-title">🧬 肉身档案 <span class="sub">核心 6 字段 · 自动算 FFMI/BMI/LBM</span></div>'+
