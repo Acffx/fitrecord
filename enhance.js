@@ -2915,8 +2915,17 @@ try{
         var list = byDate[ds]||[];
         var cls = (list.length?'has-workout ':'') + (ds===today?'today':'');
         var tip = list.length ? list.length+' 次训练' : '';
-        /* v8.10: 点击日历日期 → 弹 sheet（查看记录 + 添加历史/有氧），参考截图8 */
-        cells += '<div class="cal-day '+cls+'" data-act="viewDay" data-date="'+ds+'" '+(tip?'title="'+tip+'"':'')+'>'+d+'</div>';
+        /* v8.16: 日历格子显示当日训练名称（取第 1 条训练计划名） */
+        var dayName = '';
+        if(list.length){
+          var w0 = list[0];
+          /* 截断超过 6 字符的字符串 */
+          var pn = (w0.planName || '').toString();
+          dayName = '<span class="cal-day-name">'+ (pn.length > 6 ? pn.substring(0,5)+'…' : pn) +'</span>';
+        }
+        cells += '<div class="cal-day '+cls+'" data-act="viewDay" data-date="'+ds+'" '+(tip?'title="'+tip+'"':'')+'>'+
+          '<span class="cal-day-num">'+d+'</span>'+dayName+
+        '</div>';
       }
       var totalWorkouts = safe.workouts.length;
       var totalSec = safe.workouts.reduce(function(a,w){ return a+(+w.duration||0); }, 0);
