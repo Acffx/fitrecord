@@ -1353,7 +1353,8 @@ function renderBodyData(){
       <div class="bd-sec-title">基础数据</div>
       <div class="bd-3grid">${cell('身高', h, 'cm', 'height')}${cell('体脂率', bf, '%', 'bodyFat')}${cell('基础代谢', bmr, 'kcal', 'bmr')}</div>
       <div class="bd-sec-title">身体围度</div>
-      <div class="bd-3grid">${cell('胸围', ch, 'cm', 'chest')}${cell('腰围', wa, 'cm', 'waist')}${cell('臀围', hi, 'cm', 'hip')}</div>
+      <div class="bd-3grid">${cell('胸围', ch, 'cm', 'chest')}${cell('肩宽', sh, 'cm', 'shoulder')}${cell('曲臂臂围', arm, 'cm', 'arm')}</div>
+      <div class="bd-3grid" style="margin-top:10px;">${cell('腰围', wa, 'cm', 'waist')}${cell('臀围', hi, 'cm', 'hip')}<div></div></div>
       <div class="bd-sec-title">身体成分</div>
       <div class="bd-3grid">${cell('骨骼肌', sk, 'kg', 'skeletal')}${cell('内脏脂肪', vi, '级', 'visceral')}<div></div></div>
     </div>
@@ -1480,6 +1481,8 @@ function bdQuickEditField(fieldName){
     hip:       {title:'选择臀围', unit:'cm', min:50, max:200, step:0.1, saveKey:'hip', storeField:'hip'},
     /* v8.15 新增 shoulder 字段（仙途页肉身档案使用） */
     shoulder:  {title:'选择肩宽', unit:'cm', min:20, max:80, step:0.1, saveKey:'shoulder', storeField:'shoulder'},
+    /* v8.20 新增 arm 字段（曲臂臂围，与胸围/肩宽并列） */
+    arm:       {title:'选择曲臂臂围', unit:'cm', min:15, max:80, step:0.1, saveKey:'arm', storeField:'arm'},
     skeletal:  {title:'选择骨骼肌', unit:'kg', min:5, max:80, step:0.1, saveKey:'skeletal', storeField:'skeletal'},
     visceral:  {title:'选择内脏脂肪', unit:'级', min:1, max:30, step:0.5, saveKey:'visceral', storeField:'visceral'},
   };
@@ -1563,7 +1566,7 @@ function bdQuickEditField(fieldName){
 function openBodyRecordSheet(){
   const p = state.profile;
   const latest = state.bodyLog.length ? state.bodyLog[state.bodyLog.length-1] : {};
-  /* 路径B 状态对象（保存用户选中的身高/体重等） */
+  /* v8.20: 路径B 状态对象（保存用户选中的身高/体重等） */
   window._bdFormState = {
     mode: 'fullForm',
     values: {
@@ -1574,6 +1577,9 @@ function openBodyRecordSheet(){
       chest: (latest.chest || ''),
       waist: (latest.waist || ''),
       hip: (latest.hip || ''),
+      shoulder: (latest.shoulder || ''),
+      /* v8.20: 新增曲臂臂围字段 */
+      arm: (latest.arm || ''),
       skeletal: (latest.skeletal || ''),
       visceral: (latest.visceral || '')
     }
@@ -1612,6 +1618,14 @@ function openBodyRecordSheet(){
         <input id="bd-chest" type="number" step="0.1" value="${cur('chest')}"/>
       </div>
       <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">📏</span><span class="k">肩宽 cm</span></div>
+        <input id="bd-shoulder" type="number" step="0.1" min="20" max="80" value="${cur('shoulder')}"/>
+      </div>
+      <div class="bd-form-item">
+        <div class="bd-item-head"><span class="bd-icon">💪</span><span class="k">曲臂臂围 cm</span></div>
+        <input id="bd-arm" type="number" step="0.1" min="15" max="80" value="${cur('arm')}"/>
+      </div>
+      <div class="bd-form-item">
         <div class="bd-item-head"><span class="bd-icon">📐</span><span class="k">腰围 cm</span></div>
         <input id="bd-waist" type="number" step="0.1" value="${cur('waist')}"/>
       </div>
@@ -1629,7 +1643,7 @@ function openBodyRecordSheet(){
       <button class="btn primary" data-act="saveBodyData">保存</button>
     </div>
   `);
-  /* v8.14: 所有输入框均为普通数字 input（彻底删除滚轮逻辑） */
+  /* v8.20: 所有输入框均为普通数字 input + 新增曲臂臂围 bd-arm */
 }
 
 /* v8.14: openHeightWheel 函数保留以兼容旧调用，但内部走数字输入（不再使用滚轮） */
@@ -2498,11 +2512,13 @@ document.addEventListener('click', e=>{
   }
   if(a==='confirmClear'){ localStorage.removeItem(DB_KEY); localStorage.removeItem('fitrecord_v2'); localStorage.removeItem('fitrecord_v1'); state=defaultState(); save(); closeSheet(); render(); toast('数据已清空'); return; }
   if(a==='saveBodyData'){
-    /* v8.14: 完整表单批量保存——所有字段均为 input number */
+    /* v8.20: 完整表单批量保存 + 同步 xian.body 缓存（保证仙途页立即刷新） */
     var weightInput = +($('#bd-weight').value || 0);
     if(!weightInput){ toast('请输入体重'); return; }
     var date = $('#bd-date').value || todayStr();
     var heightInput = +($('#bd-height').value || 0);
+    var shoulderInput = +($('#bd-shoulder').value || 0);
+    var armInput = +($('#bd-arm').value || 0);  /* v8.20 新增曲臂臂围 */
     var newEntry = {
       date: date,
       weight: weightInput,
@@ -2510,12 +2526,16 @@ document.addEventListener('click', e=>{
       bodyFat: $('#bd-fat').value || '',
       bmr: $('#bd-bmr').value || '',
       chest: $('#bd-chest').value || '',
+      shoulder: shoulderInput || '',
+      arm: armInput || '',
       waist: $('#bd-waist').value || '',
       hip: $('#bd-hip').value || '',
       skeletal: $('#bd-skel').value || '',
       visceral: $('#bd-visc').value || ''
     };
     if(!newEntry.height) delete newEntry.height;
+    if(!newEntry.shoulder) delete newEntry.shoulder;
+    if(!newEntry.arm) delete newEntry.arm;
     state.bodyLog = state.bodyLog || [];
     state.bodyLog.push(newEntry);
     state.bodyLog.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
@@ -2523,11 +2543,22 @@ document.addEventListener('click', e=>{
       state.profile = state.profile || {};
       state.profile.height = heightInput;
     }
+    /* v8.20: 同步肩宽+曲臂臂围到 xian.body 缓存 */
+    try{
+      if(state.xianJian){
+        state.xianJian.body = state.xianJian.body || {};
+        if(shoulderInput > 0) state.xianJian.body.shoulder = shoulderInput;
+        if(armInput > 0) state.xianJian.body.arm = armInput;
+      }
+    }catch(e){}
     save();
     window._bdFormState = null;
     closeSheet();
     if(!$('#bodydata-view').classList.contains('hidden')) renderBodyData();
-    else render();
+    else if(window.XianCore && document.querySelector('.xc-root')){
+      var host = document.querySelector('.xc-root');
+      try{ window.XianCore.renderTo(host); }catch(e){ render(); }
+    } else render();
     toast('已保存 '+date+' 的身体数据');
     return;
   }
