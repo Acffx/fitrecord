@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1120">
+<title>仙途 · FitRecord</title>
+<style>
+/* ============================================================
+   仙途 · 移动端 PWA 完整样式（CSS 内嵌，单文件版）
+   © 2026 Acffx · 原创
+   ============================================================ */
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bg-deep: #050b18;
+  --bg-card: rgba(20, 32, 56, 0.65);
+  --bg-card-solid: #131c31;
+  --gold: #f5d97a;
+  --gold-bright: #fde08a;
+  --ice: #63b8ff;
+  --ice-bright: #9bd8ff;
+  --green: #7cf0a9;
+  --red: #ef4444;
+  --orange: #f59e0b;
+  --text: #e6ecf5;
+  --muted: #8fa3bf;
+  --line: #2a3656;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;color:var(--text);
+  background:var(--bg-deep);
+  min-height:100vh;
+  overflow-x:hidden;
+  padding-top:var(--safe-top);
+  padding-bottom:calc(60px + var(--safe-bottom));
+}
+/* 顶部导航 */
+.topnav{
+  position:sticky;top:var(--safe-top);left:0;right:0;
+  height:48px;
+  display:flex;align-items:center;padding:0 14px;
+  background:linear-gradient(180deg,rgba(8,14,30,.96),rgba(8,14,30,.7));
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-bottom:1px solid rgba(245,217,122,.18);
+  z-index:100;
+}
+.topnav .back{
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(245,217,122,.12);border:1px solid rgba(245,217,122,.3);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--gold);
+}
+.topnav .title{
+  flex:1;text-align:center;
+  font-size:18px;font-weight:700;color:#fff;
+  letter-spacing:1px;
+}
+.topnav .title-wrap{
+  background:linear-gradient(135deg,#f5d97a,#c9a85);
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+}
+.topnav .stats{
+  display:flex;gap:8px;
+  font-size:11px;color:var(--muted);
+}
+.topnav .stat-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;border-radius:12px;
+  background:rgba(245,217,122,.08);border:1px solid rgba(245,217,122,.2);
+  color:var(--gold);
+}
+/* 称号徽章 */
+.realm-badge{
+  display:inline-block;padding:3px 10px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(245,217,122,.18),rgba(245,217,122,.06));
+  border:1px solid rgba(245,217,122,.4);
+  color:var(--gold);
+  font-size:11px;font-weight:600;
+  white-space:nowrap;
+}
+/* 中央星云区 */
+.stellar{
+  position:relative;height:420px;
+  background:
+    radial-gradient(ellipse at 30% 20%,rgba(99,184,255,.15),transparent 50%),
+    radial-gradient(ellipse at 70% 80%,rgba(245,217,122,.12),transparent 50%),
+    radial-gradient(ellipse at 50% 50%,rgba(124,240,169,.08),transparent 70%),
+    linear-gradient(180deg,#050b18,#0a1228 60%,#050b18);
+  overflow:hidden;
+}
+.stellar::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%,rgba(255,255,255,.6) 50%,transparent 100%),
+    radial-gradient(1px 1px at 60% 20%,rgba(255,255,255,.5) 50%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 80% 60%,rgba(245,217,122,.6) 50%,transparent 100%),
+    radial-gradient(1px 1px at 30% 70%,rgba(255,255,255,.4) 50%,transparent 100%),
+    radial-gradient(2px 2px at 90% 30%,rgba(99,184,255,.5) 50%,transparent 100%),
+    radial-gradient(1px 1px at 10% 90%,rgba(255,255,255,.6) 50%,transparent 100%);
+  animation:star-twinkle 4s ease-in-out infinite;
+}
+@keyframes star-twinkle{0%,100%{opacity:.6;}50%{opacity:1;}}
+.stellar::after{
+  content:'';position:absolute;
+  left:50%;top:55%;width:300px;height:300px;margin-left:-150px;margin-top:-150px;
+  background:radial-gradient(circle,rgba(99,184,255,.18) 0%,transparent 70%);
+  animation:halo-pulse 3s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes halo-pulse{0%,100%{transform:scale(1);opacity:.6;}50%{transform:scale(1.1);opacity:.9;}}
+.recental-text{
+  position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);
+  font-size:20px;font-weight:700;color:var(--ice);
+  text-shadow:0 0 12px rgba(99,184,255,.6);
+  letter-spacing:2px;white-space:nowrap;
+}
+.dao-tag{
+  position:absolute;left:50%;top:42%;transform:translateX(-50%);
+  font-size:12px;color:var(--muted);
+  background:rgba(0,0,0,.4);padding:3px 10px;border-radius:10px;
+  white-space:nowrap;
+}
+.dao-tag .root{
+  color:var(--gold);margin-left:6px;font-weight:600;
+}
+#cultivateAvatar{
+  position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);
+  width:240px;height:240px;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .6s ease;
+}
+#cultivateAvatar.fade{opacity:0;}
+#cultivateAvatar img{
+  max-width:100%;max-height:100%;object-fit:contain;
+  filter:drop-shadow(0 0 18px rgba(99,184,255,.4));
+}
+.avatar-placeholder{
+  width:200px;height:200px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(99,184,255,.1),rgba(245,217,122,.06));
+  border:2px dashed rgba(99,184,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:var(--muted);text-align:center;line-height:1.5;
+}
+.cultivation-rate{
+  position:absolute;left:50%;bottom:24px;transform:translateX(-50%);
+  text-align:center;font-size:13px;color:var(--muted);
+}
+.cultivation-rate .num{color:var(--gold);font-weight:700;font-size:18px;}
+.progress-bar{
+  position:absolute;left:5%;right:5%;bottom:8px;height:6px;
+  background:rgba(99,184,255,.12);border-radius:3px;overflow:hidden;
+}
+.progress-fill{
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--ice),var(--gold));
+  transition:width .8s cubic-bezier(.4,1.4,.6,1);
+  box-shadow:0 0 8px rgba(245,217,122,.4);
+}
+.progress-label{
+  position:absolute;right:5%;bottom:18px;
+  font-size:11px;color:var(--muted);
+}
+/* 通用卡片 */
+.section{
+  margin:14px 14px;
+  background:linear-gradient(135deg,rgba(20,32,56,.85),rgba(15,24,48,.85));
+  border:1px solid rgba(99,184,255,.18);
+  border-radius:14px;
+  padding:14px;
+  position:relative;
+  overflow:hidden;
+}
+.section.gold{
+  border:1px solid rgba(245,217,122,.35);
+  background:linear-gradient(135deg,rgba(40,32,18,.65),rgba(20,16,10,.7));
+}
+.section-title{
+  text-align:center;
+  font-size:16px;font-weight:700;
+  margin-bottom:12px;
+  background:linear-gradient(135deg,var(--gold),#c9a85);
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+  letter-spacing:2px;
+}
+.section-title::before,.section-title::after{
+  content:'';display:inline-block;width:30px;height:1px;background:rgba(245,217,122,.3);
+  vertical-align:middle;margin:0 8px;
+}
+/* 肉身档案两栏 */
+.body-grid{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;
+  margin-top:6px;
+}
+.body-cell{
+  background:rgba(11,17,32,.5);
+  border-radius:8px;padding:10px 8px;
+  border:1px solid rgba(99,184,255,.12);
+  text-align:center;
+}
+.body-cell .k{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.body-cell .v{font-size:18px;font-weight:700;color:#fff;}
+.body-cell .u{font-size:11px;color:var(--muted);margin-left:2px;}
+.body-cell .bonus{color:var(--gold);}
+.body-cell .root{color:var(--ice);}
+/* 修炼道途 4 宫格 */
+.dao-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+.dao-btn{
+  padding:14px 10px;
+  background:rgba(11,17,32,.5);
+  border:1px solid rgba(99,184,255,.18);
+  border-radius:12px;
+  text-align:center;cursor:pointer;
+  transition:all .25s ease;
+  position:relative;overflow:hidden;
+}
+.dao-btn .ic{font-size:24px;margin-bottom:6px;}
+.dao-btn .n{font-size:14px;font-weight:600;color:#fff;}
+.dao-btn .s{font-size:10px;color:var(--muted);margin-top:2px;}
+.dao-btn.active{
+  border-color:var(--ice);
+  box-shadow:0 0 12px rgba(99,184,255,.4);
+  background:linear-gradient(135deg,rgba(99,184,255,.18),rgba(99,184,255,.04));
+}
+.dao-btn.active::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 0%,rgba(99,184,255,.3),transparent 60%);
+  pointer-events:none;
+}
+/* 功法修为列表 */
+.skill-list{display:flex;flex-direction:column;gap:8px;}
+.skill-item{
+  display:flex;align-items:center;gap:12px;
+  background:rgba(11,17,32,.5);
+  border:1px solid rgba(99,184,255,.12);
+  border-radius:10px;padding:10px 12px;
+}
+.skill-icon{
+  width:42px;height:42px;border-radius:10px;
+  background:linear-gradient(135deg,#2563eb,#1e40af);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.skill-info{flex:1;min-width:0;}
+.skill-info .n{font-size:13px;font-weight:600;color:#fff;}
+.skill-info .lv{font-size:10px;color:var(--muted);}
+.skill-bar{
+  height:4px;background:rgba(255,255,255,.08);border-radius:2px;
+  margin-top:4px;overflow:hidden;
+}
+.skill-bar-fill{
+  height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--ice),var(--gold));
+  transition:width .6s ease;
+}
+.skill-val{
+  font-size:13px;color:var(--gold);font-weight:700;
+  margin-left:auto;flex-shrink:0;
+}
+/* 功能按钮区 */
+.actions{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;
+  margin:14px;
+}
+.act-btn{
+  padding:14px 0;
+  border-radius:12px;
+  text-align:center;cursor:pointer;
+  font-size:14px;font-weight:700;color:#fff;
+  border:0;outline:0;
+  transition:transform .15s ease;
+}
+.act-btn:active{transform:scale(.97);}
+.act-btn.red{background:linear-gradient(135deg,#ef4444,#b91c1c);box-shadow:0 4px 12px rgba(239,68,68,.35);}
+.act-btn.orange{background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 4px 12px rgba(245,158,11,.35);}
+.act-btn.dark{background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #475569;}
+/* 底部 Tab */
+.tabbar{
+  position:fixed;bottom:0;left:0;right:0;
+  height:calc(56px + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:rgba(8,14,30,.96);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid rgba(99,184,255,.15);
+  z-index:90;
+}
+.tabbar .tab{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--muted);font-size:11px;
+  padding:6px 0;
+}
+.tabbar .tab .ic{font-size:22px;margin-bottom:2px;}
+.tabbar .tab.active{color:var(--gold);}
+.tabbar .tab.active .ic{filter:drop-shadow(0 0 6px rgba(245,217,122,.6));}
+/* 提示 */
+.toast{
+  position:fixed;top:60px;left:50%;transform:translateX(-50%);
+  background:rgba(11,17,32,.95);border:1px solid var(--gold);
+  color:var(--gold);padding:8px 18px;border-radius:20px;
+  font-size:13px;z-index:200;
+  animation:toast-in .3s ease;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+}
+@keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(-10px);}to{opacity:1;}}
+/* 晋升动画 */
+@keyframes levelup-glow{
+  0%{box-shadow:0 0 0 rgba(245,217,122,0);}
+  50%{box-shadow:0 0 40px rgba(245,217,122,.8);}
+  100%{box-shadow:0 0 0 rgba(245,217,122,0);}
+}
+.section.levelup{animation:levelup-glow 1.5s ease;}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="topnav">
+  <div class="back" onclick="goBack()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </div>
+  <div class="title title-wrap">仙途</div>
+  <div class="realm-badge" id="topBadge">凡愚修士</div>
+</div>
+
+<!-- 顶部资源条 -->
+<div class="topnav" style="top:calc(48px + var(--safe-top));height:36px;background:rgba(8,14,30,.7);">
+  <div class="stats" style="width:100%;justify-content:space-around;align-items:center;">
+    <span class="stat-chip">💎 灵石 <b id="statScore" style="margin-left:4px;">0</b></span>
+    <span class="stat-chip" style="color:var(--ice);">📜 功法点 <b id="statSkill" style="margin-left:4px;">0</b></span>
+  </div>
+</div>
+
+<!-- 中央星云 + 打坐修士 -->
+<div class="stellar">
+  <div class="recental-text" id="realmName">凡俗境</div>
+  <div class="dao-tag" id="daoTag">道途：玄元拉道 ｜ 灵根：<span class="root">×1.00</span></div>
+  <div id="cultivateAvatar">
+    <!-- 图片加载失败时显示 placeholder -->
+    <div class="avatar-placeholder" id="avatarPlaceholder">🧘<br><br>修士形象<br>待加载</div>
+  </div>
+  <div class="cultivation-rate">
+    <span class="num" id="rateNum">0</span><span style="margin:0 4px;">/秒</span>
+    <span style="margin-left:12px;color:var(--muted);">总修为：</span><span class="num" id="totalExp">0</span>
+  </div>
+  <div class="progress-label" style="right:5%;"><span id="progressPct">0%</span></div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+</div>
+
+<!-- 肉身档案 -->
+<div class="section gold">
+  <div class="section-title">肉身档案</div>
+  <div class="body-grid">
+    <div class="body-cell"><div class="k">身高</div><div class="v" id="bdHeight">--<span class="u">cm</span></div></div>
+    <div class="body-cell"><div class="k">体重</div><div class="v" id="bdWeight">--<span class="u">kg</span></div></div>
+    <div class="body-cell"><div class="k">BMI</div><div class="v" id="bdBMI">--</div></div>
+    <div class="body-cell"><div class="k">体脂率</div><div class="v" id="bdFat">--<span class="u">%</span></div></div>
+    <div class="body-cell"><div class="k">FFMI</div><div class="v bonus" id="bdFFMI">--</div></div>
+    <div class="body-cell"><div class="k">校正FFMI</div><div class="v bonus" id="bdFFMIAdj">--</div></div>
+    <div class="body-cell"><div class="k">去脂体重</div><div class="v" id="bdFFM">--<span class="u">kg</span></div></div>
+    <div class="body-cell"><div class="k">肩宽</div><div class="v" id="bdShoulder">--<span class="u">cm</span></div></div>
+    <div class="body-cell"><div class="k">胸围</div><div class="v" id="bdChest">--<span class="u">cm</span></div></div>
+    <div class="body-cell"><div class="k">灵根倍率</div><div class="v root" id="bdRoot">×1.00</div></div>
+  </div>
+</div>
+
+<!-- 修炼道途 -->
+<div class="section">
+  <div class="section-title">修炼道途</div>
+  <div class="dao-grid" id="daoGrid">
+    <div class="dao-btn" data-dao="天罡推道" onclick="switchDao('天罡推道')">
+      <div class="ic">⚡</div><div class="n">天罡推道</div><div class="s">掌印推力</div>
+    </div>
+    <div class="dao-btn" data-dao="玄元拉道" onclick="switchDao('玄元拉道')">
+      <div class="ic">🐲</div><div class="n">玄元拉道</div><div class="s">擒龙拉力</div>
+    </div>
+    <div class="dao-btn" data-dao="后土腿道" onclick="switchDao('后土腿道')">
+      <div class="ic">⛰️</div><div class="n">后土腿道</div><div class="s">桩功承躯</div>
+    </div>
+    <div class="dao-btn" data-dao="混元均衡道" onclick="switchDao('混元均衡道')">
+      <div class="ic">☯️</div><div class="n">混元均衡道</div><div class="s">三道合一</div>
+    </div>
+  </div>
+</div>
+
+<!-- 功法修为（4 条示例条目，真实数据由训练联动） -->
+<div class="section">
+  <div class="section-title">功法修为</div>
+  <div class="skill-list" id="skillList"><!-- JS 渲染 --></div>
+</div>
+
+<!-- 功能按钮区 -->
+<div class="actions">
+  <button class="act-btn red" onclick="goMeasure()">📊 体测记录</button>
+  <button class="act-btn orange" onclick="syncCultivation()">⚡ 同步训练修为</button>
+  <button class="act-btn dark" onclick="exportData()">📤 导出数据</button>
+</div>
+
+<!-- 底部 Tab -->
+<div class="tabbar">
+  <div class="tab" onclick="goTab('train')"><div class="ic">🏠</div>训练</div>
+  <div class="tab" onclick="goTab('library')"><div class="ic">📚</div>动作库</div>
+  <div class="tab" onclick="goTab('stats')"><div class="ic">📊</div>统计</div>
+  <div class="tab active"><div class="ic">✨</div>仙途</div>
+</div>
+
+<script>
+/* ============================================================
+   仙途页核心：训练数据 ↔ 修为境界联动
+   localStorage 键名规范：
+   - trainScore        累计训练积分
+   - cultivationExp    当前修为经验值
+   - nextLevelExp      当前境界升级所需总经验
+   - currentDao        选中道途
+   - userRealm         当前境界名称
+   - bodySnapshot      身体数据快照 {height, weight, bodyFat, chest, shoulder}
+   ============================================================ */
+
+/* v8.18 境界经验阈值配置（方便后续修改） */
+const realmConfig = [
+  {name:'凡俗境',   minExp:0,      maxExp:999,      badge:'凡愚修士'},
+  {name:'炼气期',   minExp:1000,   maxExp:4999,     badge:'炼气小修'},
+  {name:'筑基期',   minExp:5000,   maxExp:19999,    badge:'筑基修士'},
+  {name:'金丹期',   minExp:20000,  maxExp:99999,    badge:'金丹真人'},
+  {name:'元婴期',   minExp:100000, maxExp:499999,   badge:'元婴老祖'},
+  {name:'化神期',   minExp:500000, maxExp:1999999,  badge:'化神大能'},
+  {name:'炼虚期',   minExp:2000000,maxExp:9999999,  badge:'炼虚至尊'},
+  {name:'渡劫期',   minExp:10000000,maxExp:99999999, badge:'渡劫真仙'}
+];
+
+/* 修士形象映射表（图片目录：C:/Users/Administrator/Desktop/人物图片/）
+   无对应文件时显示灰色占位框【修士形象待加载】 */
+const avatarMap = {
+  '凡俗境': {
+    '天罡推道':   './character/fan_tiangang.png',
+    '玄元拉道':   './character/fan_xuanyuan.png',
+    '后土腿道':   './character/fan_houtu.png',
+    '混元均衡道': './character/fan_hunyuan.png'
+  },
+  '炼气期': {
+    '天罡推道':   './character/lianqi_tiangang.png',
+    '玄元拉道':   './character/lianqi_xuanyuan.png',
+    '后土腿道':   './character/lianqi_houtu.png',
+    '混元均衡道': './character/lianqi_hunyuan.png'
+  },
+  '筑基期': {
+    '天罡推道':   './character/zhuji_tiangang.png',
+    '玄元拉道':   './character/zhuji_xuanyuan.png',
+    '后土腿道':   './character/zhuji_houtu.png',
+    '混元均衡道': './character/zhuji_hunyuan.png'
+  }
+};
+
+/* 功法修为示例条目（实际联动训练数据） */
+const skillSeeds = [
+  {app:'深蹲',     dao:'后土腿道', icon:'🏋️'},
+  {app:'卧推',     dao:'天罡推道', icon:'💪'},
+  {app:'引体向上', dao:'玄元拉道', icon:'🧗'},
+  {app:'跑步',     dao:'混元均衡道', icon:'🏃'}
+];
+
+/* ---------- localStorage 工具 ---------- */
+function loadStore(key, def){
+  try{
+    var v = localStorage.getItem(key);
+    return v == null ? def : JSON.parse(v);
+  }catch(e){return def;}
+}
+function saveStore(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+}
+
+/* ---------- 状态 ---------- */
+var state = {
+  trainScore:      loadStore('trainScore', 0),
+  cultivationExp:  loadStore('cultivationExp', 0),
+  nextLevelExp:    loadStore('nextLevelExp', 0),
+  currentDao:      loadStore('currentDao', '玄元拉道'),
+  userRealm:       loadStore('userRealm', '凡俗境'),
+  bodySnapshot:    loadStore('bodySnapshot', {height:'',weight:'',bodyFat:'',chest:'',shoulder:'',bmr:''}),
+  totalExp:        loadStore('totalExp', 0),
+  skillExp:        loadStore('skillExp', {})
+};
+
+/* ---------- 境界判定 ---------- */
+function getCurrentRealm(){
+  for(var i=0;i<realmConfig.length;i++){
+    var r = realmConfig[i];
+    if(state.cultivationExp >= r.minExp && state.cultivationExp <= r.maxExp){
+      return {idx:i, ...r};
+    }
+  }
+  return {idx:realmConfig.length-1, ...realmConfig[realmConfig.length-1]};
+}
+function getRealmProgress(){
+  var r = getCurrentRealm();
+  var next = realmConfig[r.idx + 1];
+  if(!next){
+    return {percent:100, current:state.cultivationExp, target:r.maxExp, isMax:true};
+  }
+  var range = next.minExp - r.minExp;
+  var current = state.cultivationExp - r.minExp;
+  return {
+    percent: Math.min(100, Math.round((current/range)*100)),
+    current: state.cultivationExp,
+    target: next.minExp,
+    nextName: next.name,
+    isMax: false
+  };
+}
+
+/* ---------- 初始化 ---------- */
+function init(){
+  /* 同步境界（可能 localStorage 存储的境界和实际 exp 不匹配） */
+  var r = getCurrentRealm();
+  var lastRealm = state.userRealm;
+  if(state.userRealm !== r.name){
+    state.userRealm = r.name;
+    saveStore('userRealm', r.name);
+  }
+  /* 渲染境界名称 */
+  $('#realmName').textContent = r.name + (r.idx>=2 ? ' ' + layerLabel(r.idx) + '层' : '');
+  $('#topBadge').textContent = r.badge;
+  /* 渲染道途 */
+  document.querySelectorAll('.dao-btn').forEach(function(el){
+    el.classList.toggle('active', el.dataset.dao === state.currentDao);
+  });
+  $('#daoTag').innerHTML = '道途：<b style="color:#fff;">' + state.currentDao + '</b> ｜ 灵根：<span class="root">' + computeRootMult(r.idx) + '</span>';
+  /* 渲染进度条 */
+  var p = getRealmProgress();
+  $('#progressFill').style.width = p.percent + '%';
+  $('#progressPct').textContent = p.percent + '%';
+  $('#rateNum').textContent = computeRatePerSec(r.idx);
+  $('#totalExp').textContent = state.cultivationExp.toLocaleString();
+  /* 渲染身体档案 */
+  renderBody();
+  /* 渲染功法修为 */
+  renderSkills();
+  /* 加载修士形象 */
+  loadAvatar(r.name, state.currentDao);
+  /* 更新顶部统计 */
+  $('#statScore').textContent = state.trainScore;
+  $('#statSkill').textContent = Object.keys(state.skillExp).length;
+  /* 检测晋升动画 */
+  var prevExp = loadStore('_lastExp', 0);
+  if(state.cultivationExp > prevExp){
+    saveStore('_lastExp', state.cultivationExp);
+  }
+}
+function layerLabel(idx){
+  /* 境界层数 = 1-9（按 idx 1-8 映射） */
+  return ['一','二','三','四','五','六','七','八','九'][idx] || (idx+1);
+}
+function computeRootMult(idx){
+  /* 简单映射：境界越高倍率越高 */
+  return ['×1.00','×1.00','×1.20','×1.50','×1.80','×2.20','×2.80','×3.50','×4.50'][idx] || '×1.00';
+}
+function computeRatePerSec(idx){
+  /* 修为获取速率（按境界动态增长） */
+  return [1, 3, 8, 18, 45, 108, 286, 802, 2384][idx] || 1;
+}
+
+/* ---------- 修士形象加载（图片不存在 → 灰色占位） ---------- */
+function loadAvatar(realmName, daoName){
+  var box = $('#cultivateAvatar');
+  box.classList.add('fade');
+  setTimeout(function(){
+    box.innerHTML = '';
+    var url = (avatarMap[realmName] && avatarMap[realmName][daoName]) || '';
+    if(url){
+      var img = new Image();
+      img.style.maxWidth='100%';
+      img.style.maxHeight='100%';
+      img.alt = realmName + ' · ' + daoName;
+      img.onload = function(){
+        box.innerHTML = '';
+        box.appendChild(img);
+        box.classList.remove('fade');
+      };
+      img.onerror = function(){
+        showPlaceholder(realmName, daoName);
+        box.classList.remove('fade');
+      };
+      img.src = url;
+    } else {
+      showPlaceholder(realmName, daoName);
+      box.classList.remove('fade');
+    }
+  }, 200);
+}
+function showPlaceholder(realmName, daoName){
+  var box = $('#cultivateAvatar');
+  box.innerHTML = '<div class="avatar-placeholder">🧘<br><br>'+realmName+'<br>'+daoName+'<br><small style="color:#94a3b8;">修士形象待加载</small></div>';
+}
+
+/* ---------- 渲染身体档案 ---------- */
+function renderBody(){
+  var b = state.bodySnapshot || {};
+  var h = +b.height || 0;
+  var w = +b.weight || 0;
+  var bf = +b.bodyFat || 0;
+  var chest = +b.chest || 0;
+  var shoulder = +b.shoulder || 0;
+  var bmr = +b.bmr || 0;
+  setText('bdHeight', h ? h + '<span class="u">cm</span>' : '--');
+  setText('bdWeight', w ? w + '<span class="u">kg</span>' : '--');
+  if(h>0 && w>0){
+    var bmi = w / Math.pow(h/100, 2);
+    setText('bdBMI', bmi.toFixed(1));
+  } else setText('bdBMI', '--');
+  setText('bdFat', bf ? bf + '<span class="u">%</span>' : '--');
+  /* FFMI 严格按用户公式：
+     FFM = 体重 × (1 - 体脂率)
+     标准FFMI = FFM / (身高 × 身高)   身高是米
+     校正FFMI = 标准FFMI + 6.1 × (1.8 - 身高米) */
+  if(h>0 && w>0){
+    var ffatPct = bf > 0 ? bf : 15; /* 没填兜底 15% */
+    var ffm = w * (1 - ffatPct/100);
+    var hm = h/100;
+    var stdFFMI = ffm / (hm*hm);
+    var adjFFMI = stdFFMI + 6.1 * (1.8 - hm);
+    setText('bdFFMI', stdFFMI.toFixed(1));
+    setText('bdFFMIAdj', adjFFMI.toFixed(1));
+    setText('bdFFM', ffm.toFixed(1) + '<span class="u">kg</span>');
+  } else {
+    setText('bdFFMI','--');setText('bdFFMIAdj','--');setText('bdFFM','--');
+  }
+  setText('bdShoulder', shoulder ? shoulder + '<span class="u">cm</span>' : '--');
+  setText('bdChest', chest ? chest + '<span class="u">cm</span>' : '--');
+  /* 灵根倍率根据校正FFMI 区间映射 */
+  var mult = '×1.00';
+  var adj = adjFFMI || 0;
+  if(adj>=25) mult = '×4.50';
+  else if(adj>=22) mult = '×2.80';
+  else if(adj>=20) mult = '×2.20';
+  else if(adj>=18) mult = '×1.50';
+  else if(adj>=16) mult = '×1.20';
+  setText('bdRoot', mult);
+}
+function setText(id, html){
+  var el = document.getElementById(id);
+  if(el) el.innerHTML = html;
+}
+
+/* ---------- 渲染功法修为 ---------- */
+function renderSkills(){
+  var list = document.getElementById('skillList');
+  var html = skillSeeds.map(function(s){
+    var exps = state.skillExp[s.app] || 0;
+    var lv = Math.floor(Math.sqrt(exps / 100)) + 1;
+    var nextLvExp = lv * lv * 100;
+    var pct = Math.min(100, Math.round(exps/nextLvExp*100));
+    var power = Math.round(exps * 0.5 + lv * 20);
+    return '<div class="skill-item">'+
+      '<div class="skill-icon">'+s.icon+'</div>'+
+      '<div class="skill-info">'+
+        '<div class="n">《'+s.app+'》</div>'+
+        '<div class="lv">'+s.dao+' · Lv.'+lv+'</div>'+
+        '<div class="skill-bar"><div class="skill-bar-fill" style="width:'+pct+'%"></div></div>'+
+      '</div>'+
+      '<div class="skill-val">'+power+'</div>'+
+    '</div>';
+  }).join('');
+  list.innerHTML = html;
+}
+
+/* ---------- 道途切换（不改变修为，换立绘） ---------- */
+function switchDao(daoName){
+  if(!daoName) return;
+  state.currentDao = daoName;
+  saveStore('currentDao', daoName);
+  document.querySelectorAll('.dao-btn').forEach(function(el){
+    el.classList.toggle('active', el.dataset.dao === daoName);
+  });
+  /* 切换修士形象（同境界不同道途） */
+  loadAvatar(state.userRealm, daoName);
+  /* 更新道途标签 */
+  var idx = getCurrentRealm().idx;
+  $('#daoTag').innerHTML = '道途：<b style="color:#fff;">'+daoName+'</b> ｜ 灵根：<span class="root">'+computeRootMult(idx)+'</span>';
+  showToast('已切换至 '+daoName);
+}
+
+/* ---------- 同步训练修为：读取 trainScore → 转化 cultivationExp ---------- */
+function syncCultivation(){
+  var lastSync = loadStore('_lastSyncScore', 0);
+  var delta = Math.max(0, state.trainScore - lastSync);
+  if(delta === 0){
+    showToast('暂无新训练数据可同步');
+    return;
+  }
+  /* 转化规则：1 训练积分 ≈ 5 修为 */
+  var gain = delta * 5;
+  var oldRealmIdx = getCurrentRealm().idx;
+  state.cultivationExp += gain;
+  state.totalExp = (state.totalExp || 0) + gain;
+  saveStore('cultivationExp', state.cultivationExp);
+  saveStore('totalExp', state.totalExp);
+  saveStore('_lastSyncScore', state.trainScore);
+  /* 检查晋升 */
+  var newR = getCurrentRealm();
+  if(newR.idx > oldRealmIdx){
+    handleLevelUp(newR);
+  } else {
+    /* 进度条更新 */
+    init();
+    showToast('同步成功！修为 +' + gain.toLocaleString());
+  }
+}
+function handleLevelUp(newRealm){
+  state.userRealm = newRealm.name;
+  saveStore('userRealm', newRealm.name);
+  /* 切换修士形象（加载新境界立绘） */
+  loadAvatar(newRealm.name, state.currentDao);
+  /* 渲染新境界 */
+  init();
+  /* 晋升动画 */
+  var section = document.querySelector('.section.gold');
+  if(section){
+    section.classList.remove('levelup');
+    void section.offsetWidth;
+    section.classList.add('levelup');
+    setTimeout(function(){ section.classList.remove('levelup'); }, 1500);
+  }
+  /* 顶部 toast */
+  showToast('🌟 恭喜！晋升 '+newRealm.name+'！');
+}
+
+/* ---------- 顶部 toast ---------- */
+function showToast(msg){
+  var old = document.querySelector('.toast');
+  if(old) old.remove();
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 2200);
+}
+
+/* ---------- 顶部统计：模拟训练积分 ---------- */
+function seedDemoTrain(){
+  /* 仅在初始化无数据时生成示例训练积分（保证首次加载有可视化效果） */
+  if(state.trainScore === 0){
+    state.trainScore = Math.floor(Math.random() * 2000) + 200;
+    saveStore('trainScore', state.trainScore);
+    state.cultivationExp = state.trainScore * 5;
+    saveStore('cultivationExp', state.cultivationExp);
+    state.totalExp = state.cultivationExp;
+    saveStore('totalExp', state.totalExp);
+    saveStore('_lastExp', 0);
+    /* 示例功法经验 */
+    state.skillExp = {'深蹲':450,'卧推':320,'引体向上':280,'跑步':500};
+    saveStore('skillExp', state.skillExp);
+    /* 示例身体数据 */
+    state.bodySnapshot = {height:170,weight:65,bodyFat:22.5,chest:98,shoulder:42,bmr:1680};
+    saveStore('bodySnapshot', state.bodySnapshot);
+  }
+}
+
+/* ---------- 跳转：体测记录 / 导出 / 返回 ---------- */
+function goMeasure(){ window.location.href = './index.html'; }
+function goBack(){ window.location.href = './index.html'; }
+function exportData(){
+  var data = JSON.stringify(state, null, 2);
+  var blob = new Blob([data], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URLURL.createObjectURL(blob);
+  a.download = 'fitrecord_xian_' + Date.now() + '.json';
+  a.click();
+  showToast('数据已导出');
+}
+function goTab(name){
+  if(name === '仙途') return;
+  window.location.href = './index.html#' + name;
+}
+
+/* ---------- 启动 ---------- */
+function $(s){ return document.querySelector(s); }
+function $$(s){ return document.querySelectorAll(s); }
+function URLURL(u){ return window.URL.createObjectURL ? window.URL.createObjectURL : function(){ return u; }; }
+
+seedDemoTrain();
+init();
+/* 自动同步：每次进入页面自动读取训练数据并同步修为（保留手动按钮作为备用） */
+setTimeout(function(){
+  var lastSync = loadStore('_lastSyncScore', 0);
+  if(state.trainScore > lastSync){
+    /* 静默自动同步 */
+    syncCultivation();
+  }
+}, 800);
+</script>
+
+</body>
+</html>
