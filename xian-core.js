@@ -480,9 +480,10 @@ function renderMain(container){
   var ffmReal = (cr && cr.ffm != null) ? cr.ffm : 0;
   var lbm = (w>0 && estFat>0) ? w*(1-estFat) : ffmReal;
 
-  /* v8.15: 胸围/肩宽/臂围支持点击独立编辑（路径A 单项快速修改） */
+  /* v8.15: 胸围/肩宽/臂围支持点击独立编辑（路径A 单项快速修改）
+   v8.19 修复：肩宽/臂围 vs 0 误判为「未设置」 —— 改成 has = val !== '' && val != null */
   var cell = function(label, val, unit, field){
-    var has = val !== '' && val != null && val !== 0;
+    var has = val !== '' && val != null;
     /* 只允许已知字段触发编辑 */
     var editable = ['height','weight','chest','shoulder','arm','bodyFat','waist','hip'].indexOf(field) >= 0;
     if(editable){
