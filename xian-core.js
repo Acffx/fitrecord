@@ -470,6 +470,18 @@ function renderMain(container){
     /* v8.5: 兼容 state.settings.restSec（防御 undefined） */
     var restSecVal = (state.settings && state.settings.restSec) ? state.settings.restSec : 60;
 
+    /* v8.24: 计算"下次突破所需训练容量"（按境界阈值反推） */
+    var totalVol = 0;
+    if(state.workouts && state.workouts.length){
+      totalVol = state.workouts.reduce(function(n,w){ return n + (w.volume||0); }, 0);
+    }
+    /* v8.24: 境界容量阈值（与 xianAutoLevel 阈值对齐） */
+    var realmVolThresholds = [0, 2000, 8000, 20000, 50000, 120000, 250000, 550000, 1100000, 2200000, 5000000];
+    var currentThreshold = realmVolThresholds[xian.realm] || 0;
+    var nextThreshold = realmVolThresholds[xian.realm+1] || currentThreshold;
+    var volToNext = nextRealm ? Math.max(0, nextThreshold - totalVol) : 0;
+    var volProgress = nextRealm ? Math.min(100, Math.round((totalVol - currentThreshold) / (nextThreshold - currentThreshold) * 100)) : 100;
+
   /* === v8.9 简化肉身档案：只显示核心 6 字段（身高/体重/BMI/胸围/肩宽/臂围） === */
   var p = getProfile();
   var b = getBodyLatest() || {};
@@ -522,31 +534,72 @@ function renderMain(container){
     '<div class="ffmi-item"><div class="ffmi-k">灵根 倍率</div><div class="ffmi-v" style="color:'+root.color+';">×'+root.mult.toFixed(2)+'</div></div>'+
   '</div>';
 
-  /* v8.17: 动态打坐人物模块（按境界切换 emoji + 光晕 + 进度条）
-     注意：emoji 在部分浏览器下渲染可能异常，用 SVG 兜底 */
-  var realmEmojis = ['🌱', '🌿', '🌳', '⚡', '🌙', '✨', '☀️', '🌟', '🌌', '🌈'];
-  var realmGlow = ['#475569', '#7cf0a9', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444', '#ec4899a', '#06b6d4', '#8b5cf6', '#f97316'];
+  /* v8.24: 动态打坐人物 SVG（按境界切换形象 + 光晕 + 进度条）
+     用 SVG 替代 emoji，避免不同浏览器渲染差异
+     10 个境界对应 10 个不同色系的真人打坐形象 */
+  var realmGlow = ['#475569', '#7cf0a9', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316'];
   var realmGlowColor = realmGlow[xian.realm] || '#475569';
-  var cultivatorIcon = realmEmojis[xian.realm] || '🌱';
   var realmTitle = realm.name+' · '+layerCn(xian.layer)+'层';
   var daoIcon = dao.icon || '⚔️';
-  /* 静态 HTML 不用变量拼接避免渲染异常 */
-  var cultivationAvatar = '<div class="cv-avatar-wrap">'+
-    '<div class="cv-avatar" style="--glow:'+realmGlowColor+';">'+
-      '<div class="cv-avatar-glow"></div>'+
-      '<div class="cv-avatar-icon">'+cultivatorIcon+'</div>'+
-      '<div class="cv-avatar-ring"></div>'+
-      '<div class="cv-avatar-particles">'+
-        '<span class="cv-p p1">✨</span><span class="cv-p p2">✨</span><span class="cv-p p3">✨</span>'+
-        '<span class="cv-p p4">✨</span><span class="cv-p p5">✨</span>'+
-      '</div>'+
-    '</div>'+
+  /* v8.24: SVG 打坐道士形象 + 境界光晕 + 灵力光环 */
+  var cultivationAvatar = '<div class="cv-avatar-wrap" data-realm="'+xian.realm+'">'+
+    '<svg class="cv-avatar-svg" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">'+
+      /* 光晕背景圆 */
+      '<defs>'+
+        '<radialGradient id="cvGlow'+xian.realm+'" cx="50%" cy="50%" r="50%">'+
+          '<stop offset="0%" stop-color="'+realmGlowColor+'" stop-opacity="0.55"/>'+
+          '<stop offset="60%" stop-color="'+realmGlowColor+'" stop-opacity="0.18"/>'+
+          '<stop offset="100%" stop-color="'+realmGlowColor+'" stop-opacity="0"/>'+
+        '</radialGradient>'+
+        '<linearGradient id="cvRobe'+xian.realm+'" x1="0%" y1="0%" x2="0%" y2="100%">'+
+          '<stop offset="0%" stop-color="'+realmGlowColor+'"/>'+
+          '<stop offset="100%" stop-color="#0b1120"/>'+
+        '</linearGradient>'+
+      '</defs>'+
+      /* 灵力光环 */
+      '<circle cx="100" cy="110" r="95" fill="url(#cvGlow'+xian.realm+')" class="cv-aura"/>'+
+      /* 旋转光环 */
+      '<circle cx="100" cy="110" r="80" fill="none" stroke="'+realmGlowColor+'" stroke-width="1.5" stroke-dasharray="6 8" opacity="0.45" class="cv-ring"/>'+
+      /* 莲花底座 */
+      '<ellipse cx="100" cy="195" rx="55" ry="10" fill="'+realmGlowColor+'" opacity="0.3"/>'+
+      '<path d="M 45 195 Q 50 188 60 195 Q 70 188 80 195 Q 90 188 100 195 Q 110 188 120 195 Q 130 188 140 195 Q 150 188 155 195 L 155 200 L 45 200 Z" fill="'+realmGlowColor+'" opacity="0.5"/>'+
+      /* 盘腿（基础 5 边形梯形） */
+      '<path d="M 60 195 Q 55 175 70 165 L 130 165 Q 145 175 140 195 Z" fill="#1a2540" stroke="'+realmGlowColor+'" stroke-width="1.5"/>'+
+      /* 道袍身体 */
+      '<path d="M 75 165 Q 75 140 90 130 L 110 130 Q 125 140 125 165 Z" fill="url(#cvRobe'+xian.realm+')"/>'+
+      /* 袖子（左右交叉结印）） */
+      '<path d="M 80 145 Q 70 155 75 165 L 90 160 Q 85 150 90 145 Z" fill="'+realmGlowColor+'" opacity="0.85"/>'+
+      '<path d="M 120 145 Q 130 155 125 165 L 110 160 Q 115 150 110 145 Z" fill="'+realmGlowColor+'" opacity="0.85"/>'+
+      /* 双手结印（叠在丹田前） */
+      '<ellipse cx="100" cy="155" rx="18" ry="10" fill="#fde0a8" stroke="'+realmGlowColor+'" stroke-width="1"/>'+
+      '<ellipse cx="100" cy="148" rx="9" ry="5" fill="#fde0a8" stroke="'+realmGlowColor+'" stroke-width="1"/>'+
+      /* 脖子 */
+      '<rect x="93" y="120" width="14" height="12" fill="#fde0a8"/>'+
+      /* 头部 */
+      '<circle cx="100" cy="100" r="22" fill="#fde0a8"/>'+
+      /* 道冠/发髻 */
+      '<ellipse cx="100" cy="85" rx="20" ry="10" fill="#1a2540" stroke="'+realmGlowColor+'" stroke-width="1.5"/>'+
+      '<circle cx="100" cy="78" r="6" fill="'+realmGlowColor+'"/>'+
+      '<rect x="98" y="60" width="4" height="20" rx="1" fill="'+realmGlowColor+'"/>'+
+      /* 眼睛（闭合打坐） */
+      '<path d="M 88 102 Q 91 105 94 102" fill="none" stroke="#1a2540" stroke-width="1.5" stroke-linecap="round"/>'+
+      '<path d="M 106 102 Q 109 105 112 102" fill="none" stroke="#1a2540" stroke-width="1.5" stroke-linecap="round"/>'+
+      /* 胸前太极印（增加国风气息） */
+      '<circle cx="100" cy="138" r="5" fill="'+realmGlowColor+'" opacity="0.5" class="cv-taiji"/>'+
+      /* 仙气粒子 */
+      '<circle cx="60" cy="100" r="1.5" fill="'+realmGlowColor+'" opacity="0.7" class="cv-p p1"/>'+
+      '<circle cx="140" cy="90" r="1.5" fill="'+realmGlowColor+'" opacity="0.7" class="cv-p p2"/>'+
+      '<circle cx="155" cy="120" r="1.2" fill="'+realmGlowColor+'" opacity="0.7" class="cv-p p3"/>'+
+      '<circle cx="45" cy="130" r="1.2" fill="'+realmGlowColor+'" opacity="0.7" class="cv-p p4"/>'+
+      '<circle cx="160" cy="160" r="1" fill="'+realmGlowColor+'" opacity="0.7" class="cv-p p5"/>'+
+      '<circle cx="40" cy="170" r="1" fill="'+realmGlowColor+'" opacity="0.7" class="cv-p p6"/>'+
+    '</svg>'+
   '</div>';
 
   container.innerHTML =
     '<div class="xc-page" style="padding-top:0;">'+
-      /* ① 动态打坐人物模块（v8.16 新增：基于境界/道途切换形象 + 光晕特效） */
-      '<div class="cultivation-avatar" style="--glow:'+realmGlow+';margin-top:0;">'+
+      /* ① 动态打坐人物模块（v8.24 新增：SVG 真人物形象 + 训练容量进度 + 下次突破所需） */
+      '<div class="cultivation-avatar" style="--glow:'+realmGlowColor+';margin-top:0;">'+
         cultivationAvatar+
         '<div class="cv-info">'+
           '<div class="cv-title">'+realmTitle+'</div>'+
@@ -556,11 +609,15 @@ function renderMain(container){
           '</div>'+
           '<div class="cv-progress">'+
             '<div class="cv-progress-bar">'+
-              '<div class="cv-progress-fill" style="width:'+prog+'%;background:'+dao.color+';"></div>'+
+              '<div class="cv-progress-fill" style="width:'+volProgress+'%;background:'+realmGlowColor+';"></div>'+
             '</div>'+
             '<div class="cv-progress-info">'+
-              '<span class="cv-progress-val">'+Math.round(prog)+'%</span>'+
-              '<span class="cv-progress-txt">'+(nextRealm?('距 '+nextRealm.name+'：力量 + 五围达标'):'已达肉身巅峰')+'</span>'+
+              '<span class="cv-progress-val">'+volProgress+'%</span>'+
+              '<span class="cv-progress-txt">'+
+                (nextRealm ?
+                  ('距 '+nextRealm.name+' 还需 <b style="color:'+realmGlowColor+';">'+volToNext.toLocaleString()+' kg</b> 训练容量 · 累计 '+totalVol.toLocaleString()+' kg') :
+                  '已达肉身巅峰')+
+              '</span>'+
             '</div>'+
           '</div>'+
           (dbg ? '<div class="cv-debuffs">'+dbg+'</div>' : '')+
