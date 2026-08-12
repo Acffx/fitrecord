@@ -2135,9 +2135,16 @@ function _cleanupSheetState(){
     window._afterPickQuick = null;
     window._bdFormState = null;
     var sheet = document.getElementById('sheet');
-    if(sheet && sheet._fwHandler){
-      sheet.removeEventListener('click', sheet._fwHandler);
-      sheet._fwHandler = null;
+    if(sheet){
+      /* v8.17: 清理所有可能的 sheet 内 listener 引用（防重复触发） */
+      if(sheet._fwHandler){
+        sheet.removeEventListener('click', sheet._fwHandler);
+        sheet._fwHandler = null;
+      }
+      if(sheet._niHandler){
+        sheet.removeEventListener('click', sheet._niHandler);
+        sheet._niHandler = null;
+      }
     }
   }catch(e){}
 }
