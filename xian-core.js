@@ -449,16 +449,17 @@ function daoSummaryCard(daoKey, count){
 }
 
 function renderMain(container){
-  var root = getRoot();
-  var realm = CONFIG.REALMS[xian.realm];
-  var dao = CONFIG.DAOS[xian.dao];
-  var nextRealm = CONFIG.REALMS[xian.realm+1];
-  var prog = nextRealm ? (xian.layer-1)/8*100 : 100;
-  var cr = computeFFMI();
-  var ffmiTxt = cr ? 'FFMI：'+cr.ffmi.toFixed(1) : 'FFMI：--';
-  var dbg = (root.debuffs||[]).map(function(d){ return '<span class="debuff-tag">'+d.name+'</span>'; }).join('');
-  /* v8.5: 兼容 state.settings.restSec（防御 undefined） */
-  var restSecVal = (state.settings && state.settings.restSec) ? state.settings.restSec : 60;
+  try{
+    var root = getRoot();
+    var realm = CONFIG.REALMS[xian.realm];
+    var dao = CONFIG.DAOS[xian.dao];
+    var nextRealm = CONFIG.REALMS[xian.realm+1];
+    var prog = nextRealm ? (xian.layer-1)/8*100 : 100;
+    var cr = computeFFMI();
+    var ffmiTxt = cr ? 'FFMI：'+cr.ffmiAdj.toFixed(1) : 'FFMI：--';
+    var dbg = (root.debuffs||[]).map(function(d){ return '<span class="debuff-tag">'+d.name+'</span>'; }).join('');
+    /* v8.5: 兼容 state.settings.restSec（防御 undefined） */
+    var restSecVal = (state.settings && state.settings.restSec) ? state.settings.restSec : 60;
 
   /* === v8.9 简化肉身档案：只显示核心 6 字段（身高/体重/BMI/胸围/肩宽/臂围） === */
   var p = getProfile();
@@ -589,6 +590,12 @@ function renderMain(container){
       '</div>'+
       '<div style="height:100px;"></div>'+
     '</div>';
+  } catch(err){
+    try{
+      console.error('[renderMain] err:', err);
+      container.innerHTML = '<div style="padding:40px;color:#ef4444;text-align:center;">⚠ 仙途页渲染失败<br><small style="color:#64748b;">'+escapeHtml(String(err.message||err))+'</small><br><br><button onclick="window.location.reload()" style="padding:8px 16px;border-radius:8px;background:#1a2540;color:#7cf0a9;border:1px solid #475569;">🔄 刷新页面</button></div>';
+    }catch(_){}
+  }
 }
 function daoGridHTML(){
   var html = '';
