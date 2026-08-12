@@ -30,10 +30,14 @@ body{
   overscroll-behavior-y:none;
 }
 #app{max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);
-  display:flex;flex-direction:column;position:relative;}
+  display:flex;flex-direction:column;position:relative;
+  /* v8.24: iPhone 17 状态栏安全边距（动态岛 ~59px） */
+  padding-top:env(safe-area-inset-top, 0px);
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+  box-sizing:border-box;}
 
-/* 顶部栏 */
-#topbar{background:var(--bg);padding-top:var(--safe-t);}
+/* 顶部栏 — v8.24: #app 已包含 safe-area-inset-top 适配，#topbar 自身不需要额外 padding-top */
+#topbar{background:var(--bg);}
 #topbar.hidden{display:none!important;}
 .topbar-inner{height:56px;display:flex;align-items:center;padding:0 18px;}
 #topbar-title{font-size:24px;font-weight:800;color:var(--accent);letter-spacing:-.5px;}
@@ -41,11 +45,10 @@ body{
 /* 主视图 */
 #view{flex:1;padding:0 16px 92px;overflow-y:auto;}
 
-/* 底部导航 */
-#tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+/* 底部导航 — v8.24: bottom 用 env(safe-area-inset-bottom) 而非 0，避免覆盖 Home indicator */
+#tabbar{position:fixed;bottom:env(safe-area-inset-bottom, 0px);left:50%;transform:translateX(-50%);
   width:100%;max-width:430px;display:flex;background:var(--card);
-  border-top:1px solid var(--line);z-index:30;
-  padding-bottom:var(--safe-b);}
+  border-top:1px solid var(--line);z-index:30;}
 .tab{flex:1;border:0;background:transparent;padding:8px 0 6px;display:flex;
   flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:11px;}
 .tab .ic{display:flex;align-items:center;justify-content:center;height:24px;}
@@ -402,44 +405,59 @@ body{
 #view{padding-top:0;}
 #bodydata-view{padding-top:var(--safe-t);box-sizing:border-box;min-height:100vh;background:#0b1120;}
 
-/* v8.16: 仙途动态打坐人物模块 */
+/* v8.24: 仙途动态打坐人物模块（SVG 真人形象 + 进度条 + 下次突破） */
 .cultivation-avatar{
   display:flex;align-items:center;gap:14px;
   background:linear-gradient(135deg, rgba(124,240,169,.08), rgba(56,189,248,.06));
   border:1px solid #26314d;border-radius:18px;
-  padding:16px 16px;margin:8px 12px 12px;
+  padding:14px 14px;margin:8px 12px 12px;
   position:relative;overflow:hidden;
+  min-height:160px;
 }
 .cultivation-avatar::before{
   content:'';position:absolute;inset:0;
   background:radial-gradient(circle at 30% 50%, var(--glow, #7cf0a9) 0%, transparent 50%);
   opacity:.15;pointer-events:none;
 }
-.cv-avatar{position:relative;width:84px;height:84px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle, rgba(124,240,169,.2), transparent 70%);}
-.cv-avatar-glow{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, var(--glow, #7cf0a9), transparent 60%);opacity:.4;animation:cv-pulse 3s ease-in-out infinite;}
-@keyframes cv-pulse{0%,100%{opacity:.3;transform:scale(.95);}50%{opacity:.6;transform:scale(1.05);}}
-.cv-avatar-icon{position:relative;z-index:2;font-size:42px;line-height:1;filter:drop-shadow(0 0 8px var(--glow, #7cf0a9));}
-.cv-avatar-ring{position:absolute;inset:6px;border-radius:50%;border:2px solid var(--glow, #7cf0a9);animation:cv-spin 8s linear infinite;opacity:.6;}
+/* v8.24: SVG 人物容器 */
+.cv-avatar-wrap{
+  position:relative;width:130px;height:160px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+}
+.cv-avatar-svg{
+  width:130px;height:160px;
+  filter:drop-shadow(0 0 12px var(--glow, #7cf0a9));
+}
+/* 旋转光环 */
+.cv-ring{animation:cv-spin 12s linear infinite;transform-origin:100px 110px;}
+/* 灵力光环呼吸 */
+.cv-aura{animation:cv-pulse 3s ease-in-out infinite;transform-origin:100px 110px;}
+/* 胸前太极旋转 */
+.cv-taiji{animation:cv-taiji-spin 6s linear infinite;transform-origin:100px 138px;}
+/* 仙气粒子飘动 */
+.cv-p{animation:cv-float 4s ease-in-out infinite;}
+.cv-p.p1{animation-delay:0s;}
+.cv-p.p2{animation-delay:.6s;}
+.cv-p.p3{animation-delay:1.2s;}
+.cv-p.p4{animation-delay:1.8s;}
+.cv-p.p5{animation-delay:2.4s;}
+.cv-p.p6{animation-delay:3s;}
 @keyframes cv-spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
-.cv-avatar-particles{position:absolute;inset:0;pointer-events:none;}
-.cv-avatar-particles .cv-p{position:absolute;font-size:10px;animation:cv-float 4s ease-in-out infinite;opacity:.7;}
-.cv-avatar-particles .p1{top:5%;left:50%;animation-delay:0s;}
-.cv-avatar-particles .p2{top:50%;right:5%;animation-delay:.8s;}
-.cv-avatar-particles .p3{bottom:5%;left:40%;animation-delay:1.6s;}
-.cv-avatar-particles .p4{top:35%;left:5%;animation-delay:2.4s;}
-.cv-avatar-particles .p5{top:80%;right:50%;animation-delay:3.2s;}
-@keyframes cv-float{0%,100%{transform:translateY(0) scale(.8);opacity:.4;}50%{transform:translateY(-8px) scale(1.1);opacity:1;}}
+@keyframes cv-pulse{0%,100%{opacity:.8;transform:scale(.95);}50%{opacity:1;transform:scale(1.08);}}
+@keyframes cv-taiji-spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes cv-float{0%,100%{transform:translateY(0) scale(.8);opacity:.3;}50%{transform:translateY(-10px) scale(1.2);opacity:.9;}}
+
 .cv-info{flex:1;min-width:0;}
-.cv-title{font-size:18px;font-weight:800;color:#fff;line-height:1.2;}
-.cv-sub{display:flex;gap:8px;font-size:12px;color:#94a3b8;margin-top:3px;flex-wrap:wrap;}
+.cv-title{font-size:17px;font-weight:800;color:#fff;line-height:1.2;}
+.cv-sub{display:flex;gap:8px;font-size:11px;color:#94a3b8;margin-top:3px;flex-wrap:wrap;}
 .cv-dao{color:#7cf0a9;font-weight:600;}
 .cv-root{font-weight:600;}
-.cv-progress{margin-top:8px;}
-.cv-progress-bar{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;}
-.cv-progress-fill{height:100%;border-radius:3px;transition:width .4s ease;}
-.cv-progress-info{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:11px;}
-.cv-progress-val{color:#7cf0a9;font-weight:700;font-size:13px;}
-.cv-progress-txt{color:#64748b;}
+.cv-progress{margin-top:10px;}
+.cv-progress-bar{height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;}
+.cv-progress-fill{height:100%;border-radius:4px;transition:width .6s ease;box-shadow:0 0 8px currentColor;}
+.cv-progress-info{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:11px;}
+.cv-progress-val{color:#7cf0a9;font-weight:700;font-size:14px;}
+.cv-progress-txt{color:#94a3b8;line-height:1.4;}
 .cv-debuffs{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
 
 /* v8.16: 升级动画 */
