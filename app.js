@@ -1526,10 +1526,19 @@ function bdQuickEditField(fieldName){
         state.bodyLog.push(entry);
       }
       state.bodyLog.sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
-      /* 身高/体重/体脂率 同步到 profile */
+      /* v8.19 修复：身高/体重/体脂率 同步到 profile（用于 FFMI/LBM） */
       if(fieldName === 'height' || fieldName === 'weight' || fieldName === 'bodyFat'){
         state.profile = state.profile || {};
         state.profile[fieldName] = v;
+      }
+      /* v8.19 修复：肩宽/臂围/胸围/腰围/臀围 同步到 xian.body（保证仙途页立即显示） */
+      if(['shoulder','arm','thigh','calf','neck'].indexOf(fieldName) >= 0){
+        try{
+          if(state.xianJian){
+            state.xianJian.body = state.xianJian.body || {};
+            state.xianJian.body[fieldName] = v;
+          }
+        }catch(e){}
       }
       save();
       /* v8.15: 智能刷新 */
