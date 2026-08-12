@@ -131,6 +131,14 @@ function ensureXian(){
   if(!state.xianJian){
     /* v8.20: 默认包含 shoulder/arm 字段（曲臂臂围） */
     state.xianJian = { realm:0, layer:1, dao:'tian', main:[], skills:{}, body:{shoulder:'', arm:'', thigh:''}, lastBreakAt:0, bottleneckDays:0 };
+  } else {
+    /* v8.21: 老数据兼容——补充缺失字段，避免 undefined 抛错导致整页黑屏 */
+    state.xianJian.body = state.xianJian.body || {};
+    if(typeof state.xianJian.body.shoulder === 'undefined') state.xianJian.body.shoulder = '';
+    if(typeof state.xianJian.body.arm === 'undefined') state.xianJian.body.arm = '';
+    if(typeof state.xianJian.body.thigh === 'undefined') state.xianJian.body.thigh = '';
+    if(!state.xianJian.skills) state.xianJian.skills = {};
+    if(!state.xianJian.main) state.xianJian.main = [];
   }
   xian = state.xianJian;
   CONFIG.SKILLS.forEach(function(s){
@@ -1031,20 +1039,34 @@ function injectStyle(){
 
 var API = {
   init: function(){
-    injectStyle();
-    state = loadState();
-    if(!state){
-      toastQ('未检测到训练数据，请先在 FitRecord 中记录训练');
-      state = {profile:{height:175}, bodyLog:[], workouts:[], plans:[], folders:[], customEx:[]};
+    try{ injectStyle(); }catch(e){console.warn('[XianCore] injectStyle err:', e);}
+    try{
+      state = loadState();
+      if(!state){
+        toastQ('未检测到训练数据，请先在 FitRecord 中记录训练');
+        state = {profile:{height:175}, bodyLog:[], workouts:[], plans:[], folders:[], customEx:[]};
+      }
+      ensureXian();
+      if(state.xian && state.xian.dao && CONFIG.DAOS[state.xian.dao]) xian.dao = state.xian.dao;
+      return xian;
+    }catch(e){
+      console.error('[XianCore] init err:', e);
+      /* v8.21: 即使 init 失败也返回基础 xian，避免整页黑屏 */
+      xian = state && state.xian ? state.xian : {realm:0, layer:1, dao:'tian', main:[], skills:{}, body:{shoulder:'', arm:'', thigh:''}};
+      return xian;
     }
-    ensureXian();
-    if(state.xian && state.xian.dao && CONFIG.DAOS[state.xian.dao]) xian.dao = state.xian.dao;
-    return xian;
   },
   renderTo: function(container){
-    if(!xian) this.init();
-    renderMain(container);
-    bindEvents(container);
+    try{
+      if(!xian) this.init();
+      renderMain(container);
+      bindEvents(container);
+    }catch(e){
+      console.error('[XianCore] renderTo err:', e);
+      try{
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">⚠ 仙途页加载失败<br><small style="color:#94a3b8;">'+e.message+'</small><br><br><button onclick="location.reload()" style="padding:8px 16px;border-radius:8px;background:#1a2540;color:#7cf0a9;border:1px solid #475569;">🔄 刷新页面</button></div>';
+      }catch(_){}
+    }
     if(!navigator.onLine) toastQ(CONFIG.TOAST.offline);
   },
   /* 自动结算：训练完成后调用，同步全部未结算 */
